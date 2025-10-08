@@ -10,6 +10,7 @@ import (
 	"delivery/helper"
 
 	"github.com/apache/pulsar-client-go/pulsar"
+	"gorm.io/gorm"
 )
 
 const (
@@ -21,6 +22,13 @@ const (
 // PulsarClient wraps the Pulsar client with common operations
 type PulsarClient struct {
 	client pulsar.Client
+}
+
+// ConsumerManager handles initializing and managing message consumers
+type ConsumerManager struct {
+	pulsarClient *PulsarClient
+	db           *gorm.DB
+	readerDB     *gorm.DB
 }
 
 // NewPulsarClient creates a new Pulsar client
@@ -120,4 +128,57 @@ func (p *PulsarClient) CreateConsumerGroup(topic, subscription string, numConsum
 	}
 
 	return nil
+}
+
+// GetPulsarClient returns the Pulsar client for external use
+func (cm *ConsumerManager) GetPulsarClient() *PulsarClient {
+	return cm.pulsarClient
+}
+
+// NewConsumerManager creates a new consumer manager
+func NewConsumerManager(db *gorm.DB, readerDB *gorm.DB) (*ConsumerManager, error) {
+	// Initialize Pulsar client
+	pulsarClient, err := NewPulsarClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConsumerManager{
+		pulsarClient: pulsarClient,
+		db:           db,
+		readerDB:     readerDB,
+	}, nil
+}
+
+// StartConsumers starts all message consumers
+func (cm *ConsumerManager) StartConsumers() error {
+	// Start WhatsApp consumer
+	whatsAppConsumer := NewWhatsAppConsumer(cm.pulsarClient, cm.db, cm.readerDB)
+	err := whatsAppConsumer.Start(1) // Start with a single consumer worker
+	if err != nil {
+		helper.Log.Errorf("Failed to start WhatsApp consumer: %v", err)
+		return err
+	}
+
+	// Start SMS consumer
+	smsConsumer, err := NewSMSConsumer(cm.pulsarClient, cm.db, cm.readerDB)
+	if err != nil {
+		helper.Log.Errorf("Failed to create SMS consumer: %v", err)
+		return err
+	}
+
+	err = smsConsumer.Start()
+	if err != nil {
+		helper.Log.Errorf("Failed to start SMS consumer: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// Close closes the Pulsar client connection
+func (cm *ConsumerManager) Close() {
+	if cm.pulsarClient != nil {
+		cm.pulsarClient.Close()
+	}
 }

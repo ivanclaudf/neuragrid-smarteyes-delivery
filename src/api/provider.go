@@ -88,6 +88,12 @@ func (a *ProviderAPI) CreateProviders(request models.ProviderRequest) (*models.P
 			provider.Status = *providerItem.Status
 		}
 
+		// Generate UUID for the provider
+		if err := provider.GenerateUUID(); err != nil {
+			providerLogger.WithError(err).Error("Failed to generate UUID")
+			return nil, fmt.Errorf("failed to generate UUID: %v", err)
+		}
+
 		// Save provider to database
 		if err := a.DB.Create(&provider).Error; err != nil {
 			providerLogger.WithError(err).Error("Failed to create provider in database")

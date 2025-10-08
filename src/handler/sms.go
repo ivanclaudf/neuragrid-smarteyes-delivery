@@ -1,42 +1,75 @@
 package handler
 
 import (
+	"delivery/api"
 	"delivery/helper"
+	"delivery/models"
+	"delivery/services/queue"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 )
 
-// SMSHandler handles SMS operations
+// SMSHandler handles SMS endpoints
 type SMSHandler struct {
-	DB *gorm.DB
+	api          *api.SMSAPI
+	pulsarClient *queue.PulsarClient
+	db           *gorm.DB
+	readerDB     *gorm.DB
 }
 
 // NewSMSHandler creates a new SMS handler
-func NewSMSHandler(db *gorm.DB) (*SMSHandler, error) {
-	if db == nil {
-		return nil, nil
-	}
+func NewSMSHandler(db *gorm.DB, readerDB *gorm.DB, pulsarClient *queue.PulsarClient) (*SMSHandler, error) {
 	return &SMSHandler{
-		DB: db,
+		pulsarClient: pulsarClient,
+		db:           db,
+		readerDB:     readerDB,
 	}, nil
 }
 
 // RegisterSMSRoutes registers all SMS-related routes
-func RegisterSMSRoutes(r *mux.Router, db *gorm.DB) {
-	handler, err := NewSMSHandler(db)
+func RegisterSMSRoutes(r *mux.Router, db *gorm.DB, readerDB *gorm.DB, pulsarClient *queue.PulsarClient) {
+	handler, err := NewSMSHandler(db, readerDB, pulsarClient)
 	if err != nil {
 		return
 	}
 
-	r.HandleFunc("/api/v1/sms", func(w http.ResponseWriter, r *http.Request) {
-		handler.HandleSMSRequest(w, r)
-	}).Methods("POST")
+	// Initialize SMS API
+	smsAPI, err := api.NewSMSAPI(db, readerDB, pulsarClient)
+	if err != nil {
+		helper.Log.Errorf("Failed to create SMS API: %v", err)
+		return
+	}
+
+	handler.api = smsAPI
+
+	// Combined SMS endpoint for messages
+	r.HandleFunc("/api/v1/sms", handler.HandleSMSRequest).Methods("POST")
 }
 
-// HandleSMSRequest handles SMS requests
+// HandleSMSRequest handles the SMS request
 func (h *SMSHandler) HandleSMSRequest(w http.ResponseWriter, r *http.Request) {
-	// Placeholder for SMS handling logic
-	helper.RespondWithError(w, http.StatusNotImplemented, helper.CodeError, "SMS sending not yet implemented")
+	var request models.SMSRequest
+
+	if err := helper.ValidateRequestBody(r, &request); err != nil {
+		helper.RespondWithError(w, http.StatusBadRequest, helper.CodeBadRequest, helper.MsgInvalidRequestBody)
+		return
+	}
+
+	// Use the API layer to process the request
+	responses, err := h.api.ProcessMessageBatch(request)
+	if err != nil {
+		helper.RespondWithError(w, http.StatusBadRequest, helper.CodeBadRequest, err.Error())
+		return
+	}
+
+	// Wrap responses in a "messages" object
+	responseWrapper := models.SMSResponse{
+		Messages: responses,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	helper.WriteJSON(w, responseWrapper)
 }

@@ -98,6 +98,72 @@ Send WhatsApp template messages to recipients. Messages are queued and processed
 }
 ```
 
+## SMS API
+
+### `POST /api/v1/sms`
+
+Send SMS messages to recipients. Messages are queued and processed asynchronously.
+
+**Request:**
+
+```json
+{
+  "messages": [
+    {
+      "from": "+13364399228",
+      "to": [
+        {
+          "telephone": "+9900186039"
+        }
+      ],
+      "body": "Your verification code is 123456",
+      "provider": "0bca5714-bceb-49a4-a4eb-e3afcec26328",
+      "refno": "000000000002",
+      "categories": [
+        "verification"
+      ],
+      "identifiers": {
+        "tenant": "example-tenant",
+        "eventUuid": "0bca5714-bceb-49a4-a4eb-e3afcec26328",
+        "actionUuid": "0bca5714-bceb-49a4-a4eb-e3afcec26328",
+        "actionCode": "user_verification"
+      }
+    }
+  ]
+}
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| messages | array | Yes | Array of message objects to send |
+| messages[].from | string | Yes | Sender phone number in E.164 format |
+| messages[].to | array | Yes | Array of recipient objects |
+| messages[].to[].telephone | string | Yes | Recipient telephone number in E.164 format |
+| messages[].body | string | Yes | Content of the SMS message |
+| messages[].provider | string | Yes | UUID of the provider to use |
+| messages[].refno | string | Yes | Reference number for tracking |
+| messages[].categories | array | Yes | Array of category strings |
+| messages[].identifiers | object | Yes | Identifiers for message tracking |
+| messages[].identifiers.tenant | string | Yes | Tenant identifier |
+| messages[].identifiers.eventUuid | string | No | Event UUID |
+| messages[].identifiers.actionUuid | string | No | Action UUID |
+| messages[].identifiers.actionCode | string | No | Action code |
+
+**Response:**
+
+```json
+{
+  "messages": [
+    {
+      "refno": "000000000002",
+      "uuid": "b2c3d4e5-f678-9012-abcd-123456789012"
+    }
+  ]
+}
+```
+
 ## Template API
 
 ### `POST /api/v1/templates`

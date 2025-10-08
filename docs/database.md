@@ -31,7 +31,7 @@ The `provider` table stores messaging service provider configurations.
 |-------------|--------------|-------------------------------------------------|
 | id          | serial       | Primary key                                     |
 | uuid        | varchar(36)  | Unique identifier                               |
-| code        | varchar(255) | Provider code (unique per tenant)               |
+| code        | varchar(255) | Provider code (unique per tenant and channel)   |
 | provider    | varchar(255) | Provider implementation class (e.g., "TWILIO")  |
 | name        | varchar(255) | Human-readable provider name                    |
 | config      | jsonb        | Public provider configuration                   |
@@ -42,7 +42,7 @@ The `provider` table stores messaging service provider configurations.
 | created_at  | timestamp    | When the record was created                     |
 | updated_at  | timestamp    | When the record was last updated                |
 
-Unique index on `code` and `tenant` to ensure provider codes are unique within a tenant.
+Unique index on `code`, `tenant`, and `channel` to ensure provider codes are unique within a tenant for each channel type.
 
 #### Template
 
@@ -52,13 +52,17 @@ The `template` table stores message templates.
 |-------------|--------------|-----------------------------------------------|
 | id          | serial       | Primary key                                   |
 | uuid        | varchar(36)  | Unique identifier                             |
+| code        | varchar(50)  | Non-editable unique template code             |
 | name        | varchar(255) | Template name                                 |
 | content     | text         | Template content with placeholders            |
 | status      | smallint     | Template status (0=inactive, 1=active)        |
 | channel     | varchar(10)  | Message channel (WHATSAPP, SMS, EMAIL)        |
+| template_ids| jsonb        | Provider template IDs                         |
 | tenant      | varchar(255) | Tenant identifier                             |
 | created_at  | timestamp    | When the record was created                   |
 | updated_at  | timestamp    | When the record was last updated              |
+
+Unique index on `tenant`, `code`, and `channel` to ensure template codes are unique within a tenant for each channel type.
 
 #### Message
 

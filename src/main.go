@@ -40,24 +40,22 @@ func main() {
 	// Register health check route
 	handler.RegisterHealthRoute(r)
 
-	// Initialize Pulsar client
-	pulsarClient, err := queue.NewPulsarClient()
+	// Initialize and start consumers
+	consumerManager, err := queue.NewConsumerManager(db, readerDB)
 	if err != nil {
-		helper.Log.Fatalf("Failed to initialize Pulsar client: %v", err)
+		helper.Log.Fatalf("Failed to initialize consumer manager: %v", err)
 	}
-	defer pulsarClient.Close()
+	defer consumerManager.Close()
 
-	// Start WhatsApp consumer
-	whatsAppConsumer := queue.NewWhatsAppConsumer(pulsarClient, db, readerDB)
-	err = whatsAppConsumer.Start(1) // Start with a single consumer worker
+	err = consumerManager.StartConsumers()
 	if err != nil {
-		helper.Log.Errorf("Failed to start WhatsApp consumer: %v", err)
+		helper.Log.Fatalf("Failed to start consumers: %v", err)
 	}
 
 	// Register API routes for WhatsApp, Email, SMS, Providers, and Templates
-	handler.RegisterWhatsAppRoutes(r, db, readerDB, pulsarClient)
+	handler.RegisterWhatsAppRoutes(r, db, readerDB, consumerManager.GetPulsarClient())
 	handler.RegisterEmailRoutes(r, db)
-	handler.RegisterSMSRoutes(r, db)
+	handler.RegisterSMSRoutes(r, db, readerDB, consumerManager.GetPulsarClient())
 	handler.RegisterProviderRoutes(r, db, readerDB)
 	handler.RegisterTemplateRoutes(r, db, readerDB)
 

@@ -4,14 +4,14 @@ import (
 	"delivery/helper"
 	"delivery/models"
 	"delivery/services"
-	"delivery/services/providers/whatsapp"
+	"delivery/services/providers/sms"
 	"errors"
 	"strings"
 )
 
-// CreateWhatsAppProvider creates a WhatsApp provider based on the provider code
-func CreateWhatsAppProvider(provider *models.Provider) (services.WhatsAppService, error) {
-	logger := helper.Log.WithField("component", "WhatsAppProviderFactory")
+// CreateSMSProvider creates an SMS provider based on the provider code
+func CreateSMSProvider(provider *models.Provider) (services.SMSService, error) {
+	logger := helper.Log.WithField("component", "SMSProviderFactory")
 
 	if provider == nil {
 		logger.Error("Provider cannot be nil")
@@ -24,24 +24,24 @@ func CreateWhatsAppProvider(provider *models.Provider) (services.WhatsAppService
 		"providerImpl": provider.Provider,
 	})
 
-	logger.Debug("Creating WhatsApp provider instance")
+	logger.Debug("Creating SMS provider instance")
 
 	// Create provider based on the implementation class (provider column) with case insensitive comparison
 	providerType := strings.ToUpper(provider.Provider)
 
 	switch providerType {
 	case "TWILIO":
-		logger.Info("Creating Twilio WhatsApp provider")
-		whatsappProvider, err := whatsapp.NewTwilioProviderFromDB(provider)
+		logger.Info("Creating Twilio SMS provider")
+		twilioProvider, err := sms.NewTwilioProviderFromDB(provider)
 		if err != nil {
-			logger.WithError(err).Error("Failed to create Twilio WhatsApp provider")
+			logger.WithError(err).Error("Failed to create Twilio SMS provider")
 			return nil, err
 		}
-		logger.Debug("Twilio WhatsApp provider created successfully")
-		return whatsappProvider, nil
+		logger.Debug("Twilio SMS provider created successfully")
+		return twilioProvider, nil
 	// Add additional provider implementations here as they become available
 	default:
-		unsupportedErr := "unsupported WhatsApp provider implementation: " + provider.Provider
+		unsupportedErr := "unsupported SMS provider implementation: " + provider.Provider
 		logger.Error(unsupportedErr)
 		return nil, errors.New(unsupportedErr)
 	}

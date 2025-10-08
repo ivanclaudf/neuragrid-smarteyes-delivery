@@ -2,8 +2,6 @@ package models
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // Template represents a message template in the database
@@ -19,14 +17,12 @@ type Template struct {
 	Tenant      string    `gorm:"type:varchar(255);not null;index"`
 	CreatedAt   time.Time `gorm:"autoCreateTime;not null;index"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime;not null"`
+
+	// Define unique constraint: tenant + code + channel must be unique
+	_ struct{} `gorm:"uniqueIndex:idx_tenant_code_channel;columns:tenant,code,channel"`
 }
 
 // TableName defines the table name for the Template model
 func (Template) TableName() string {
 	return "templates"
-}
-
-// BeforeSave adds a uniqueness index on code and tenant
-func (t *Template) BeforeSave(tx *gorm.DB) error {
-	return tx.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_templates_code_tenant ON templates (code, tenant)").Error
 }
