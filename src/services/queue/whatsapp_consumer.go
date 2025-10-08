@@ -235,8 +235,12 @@ func (c *WhatsAppConsumer) sendToRecipients(
 	recipients []models.WhatsAppRecipient,
 	templateID string,
 	params map[string]string,
+	templateContent string,
 ) {
 	helper.Log.WithField("recipient_count", len(recipients)).Info("Processing recipients")
+
+	// Track if any message was sent successfully
+	atLeastOneSuccess := false
 
 	for _, recipient := range recipients {
 		helper.Log.WithFields(map[string]interface{}{
@@ -244,11 +248,62 @@ func (c *WhatsAppConsumer) sendToRecipients(
 			"template_id": templateID,
 		}).Info("Sending WhatsApp message")
 
+		// Render the template with variables using Go's text/template
+		helper.Log.WithFields(map[string]interface{}{
+			"telephone": recipient.Telephone,
+			"params":    params,
+			"template":  templateContent,
+		}).Debug("Rendering template with parameters")
+
+		renderedContent, err := helper.RenderTemplate(templateContent, params)
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to render template for %s: %v", recipient.Telephone, err)
+			helper.Log.WithError(err).WithFields(map[string]interface{}{
+				"telephone": recipient.Telephone,
+				"params":    params,
+				"template":  templateContent,
+			}).Error("Template rendering failed")
+
+			// Update message status to REJECTED
+			dbMessage.Status = models.StatusRejected
+			if dbErr := c.db.Save(dbMessage).Error; dbErr != nil {
+				helper.Log.WithError(dbErr).Error("Failed to update message status to REJECTED")
+			}
+
+			// Create message event with error text but continue with next recipient
+			eventErr := c.createRejectionEvent(dbMessage.UUID, errMsg)
+			if eventErr != nil {
+				helper.Log.WithError(eventErr).Error("Failed to create rejection event")
+			}
+			continue
+		}
+
+		helper.Log.WithFields(map[string]interface{}{
+			"telephone":        recipient.Telephone,
+			"original_content": templateContent,
+			"rendered_content": renderedContent,
+		}).Debug("Template rendered successfully")
+
+		// For Twilio WhatsApp, update the params with the rendered content
+		// This way we preserve the original API contract but enhance it with the rendered template
+		paramsWithRenderedContent := make(map[string]string)
+		for k, v := range params {
+			paramsWithRenderedContent[k] = v
+		}
+		// Add a special parameter for the rendered content if needed by providers
+		paramsWithRenderedContent["rendered_content"] = renderedContent
+
 		// Send the template message using the provider-specific template ID
-		err := whatsappProvider.SendTemplate(recipient.Telephone, templateID, params)
+		err = whatsappProvider.SendTemplate(recipient.Telephone, templateID, paramsWithRenderedContent)
 		if err != nil {
 			errMsg := fmt.Sprintf("Failed to send WhatsApp message to %s: %v", recipient.Telephone, err)
 			helper.Log.WithError(err).WithField("telephone", recipient.Telephone).Error("Send failed")
+
+			// Update message status to REJECTED
+			dbMessage.Status = models.StatusRejected
+			if dbErr := c.db.Save(dbMessage).Error; dbErr != nil {
+				helper.Log.WithError(dbErr).Error("Failed to update message status to REJECTED")
+			}
 
 			// Create message event with error text but continue with next recipient
 			eventErr := c.createRejectionEvent(dbMessage.UUID, errMsg)
@@ -264,7 +319,20 @@ func (c *WhatsAppConsumer) sendToRecipients(
 			helper.Log.WithError(eventErr).Error("Failed to create success event")
 		} else {
 			helper.Log.WithField("telephone", recipient.Telephone).Info("Message sent successfully")
+			atLeastOneSuccess = true
 		}
+	}
+
+	// Update final message status based on success/failure
+	if !atLeastOneSuccess {
+		dbMessage.Status = models.StatusRejected
+	} else {
+		dbMessage.Status = models.StatusSent
+	}
+
+	// Save the final status
+	if err := c.db.Save(dbMessage).Error; err != nil {
+		helper.Log.WithError(err).Error("Failed to update final message status")
 	}
 }
 
@@ -331,15 +399,22 @@ func (c *WhatsAppConsumer) handleMessage(data []byte) error {
 		return c.rejectMessage(dbMessage, fmt.Sprintf("failed to create WhatsApp provider: %v", err))
 	}
 
-	// Update database status to SENT
-	dbMessage.Status = models.StatusSent
+	// Set initial message status to ACCEPTED (processing state)
+	dbMessage.Status = models.StatusAccepted
 	if err := c.db.Save(dbMessage).Error; err != nil {
-		helper.Log.WithError(err).Error("Failed to update message status to SENT")
+		helper.Log.WithError(err).Error("Failed to update message status to ACCEPTED")
 		return fmt.Errorf("failed to update message status: %w", err)
 	}
 
-	// Send to all recipients
-	c.sendToRecipients(whatsappProvider, dbMessage, message.To, templateID, message.Params)
+	// Log the template content that will be used
+	helper.Log.WithFields(map[string]interface{}{
+		"template_uuid": template.UUID,
+		"template_name": template.Name,
+		"content":       template.Content,
+	}).Debug("Using template content for rendering")
+
+	// Send to all recipients with the template content
+	c.sendToRecipients(whatsappProvider, dbMessage, message.To, templateID, message.Params, template.Content)
 
 	// Update message timestamp
 	return c.updateMessageTimestamp(dbMessage)

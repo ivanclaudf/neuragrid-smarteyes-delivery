@@ -109,6 +109,7 @@ Create a new template.
 ```json
 {
   "templates": [{
+    "code": "alert-template",
     "name": "Alert Template",
     "content": "Hello {{name}}, there has been an alert in your area.",
     "status": 1,
@@ -127,6 +128,7 @@ Create a new template.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | templates | array | Yes | Array containing at least one template object |
+| templates[].code | string | Yes | Unique code for the template (unique per tenant, cannot be edited after creation) |
 | templates[].name | string | Yes | Name of the template |
 | templates[].content | string | Yes | Content of the template |
 | templates[].status | number | No | Status of the template (0=inactive, 1=active). Default is 0 |
@@ -142,6 +144,7 @@ Create a new template.
   "templates": [
     {
       "uuid": "a1b2c3d4-e5f6-7890-abcd-1234567890ab",
+      "code": "alert-template",
       "name": "Alert Template",
       "content": "Hello {{name}}, there has been an alert in your area.",
       "status": 1,
@@ -170,6 +173,7 @@ Get all templates with optional filtering.
 | offset | integer | No | Number of templates to skip for pagination |
 | channel | string | No | Filter templates by channel (WHATSAPP, SMS, EMAIL) |
 | tenant | string | No | Filter templates by tenant identifier |
+| code | string | No | Filter templates by code |
 
 **Response:**
 
@@ -239,6 +243,7 @@ Update a template by UUID.
       "messagebird": "mb-template-5678"
     },
     "status": 1
+    /* Note: code field cannot be edited after creation */
   }]
 }
 ```
@@ -255,6 +260,7 @@ Update a template by UUID.
   "templates": [
     {
       "uuid": "a1b2c3d4-e5f6-7890-abcd-1234567890ab",
+      "code": "alert-template",
       "name": "Updated Alert Template",
       "content": "Hello {{name}}, there has been an important alert in your area.",
       "status": 1,

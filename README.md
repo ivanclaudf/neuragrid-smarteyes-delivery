@@ -10,7 +10,7 @@ A Golang application for managing various messaging delivery channels including 
 - Abstracted interfaces for easy extension with new providers
 - Database migrations framework
 - Asynchronous message processing with Apache Pulsar
-- Template and provider management
+- Template management with variable substitution using Go's text/template
 - Secure credential storage with encryption
 - Docker support
 
@@ -20,6 +20,7 @@ The project documentation is organized into several files:
 
 - [API Documentation](docs/api.md): API endpoints, request/response formats, and examples
 - [Database Documentation](docs/database.md): Database schema, setup, and migrations
+- [Template Documentation](docs/templates.md): Guide on creating and using templates with variable support
 
 ## Setup
 

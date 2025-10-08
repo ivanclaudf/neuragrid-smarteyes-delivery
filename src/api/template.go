@@ -69,6 +69,7 @@ func (a *TemplateAPI) CreateTemplates(request models.TemplateRequest) (*models.T
 		// Create template object using DB defaults
 		template := models.Template{
 			UUID:        uuid,
+			Code:        templateItem.Code,
 			Name:        templateItem.Name,
 			Content:     templateItem.Content,
 			Channel:     models.Channel(templateItem.Channel),
@@ -92,6 +93,7 @@ func (a *TemplateAPI) CreateTemplates(request models.TemplateRequest) (*models.T
 		// Add to response
 		responseItem := models.TemplateResponseItem{
 			UUID:        template.UUID,
+			Code:        template.Code,
 			Name:        template.Name,
 			Content:     template.Content,
 			Channel:     string(template.Channel),
@@ -150,6 +152,11 @@ func (a *TemplateAPI) UpdateTemplate(uuid string, request models.TemplateRequest
 	// Update only the fields that are provided
 	updates := make(map[string]interface{})
 
+	// Skip code field if provided - templates code can't be edited
+	if templateItem.Code != "" && templateItem.Code != template.Code {
+		logger.Warn("Template code cannot be edited, ignoring code update")
+	}
+
 	if templateItem.Name != "" {
 		updates["name"] = templateItem.Name
 	}
@@ -186,6 +193,7 @@ func (a *TemplateAPI) UpdateTemplate(uuid string, request models.TemplateRequest
 		Templates: []models.TemplateResponseItem{
 			{
 				UUID:        template.UUID,
+				Code:        template.Code,
 				Name:        template.Name,
 				Content:     template.Content,
 				Channel:     string(template.Channel),
@@ -229,6 +237,7 @@ func (a *TemplateAPI) GetTemplate(uuid string) (*models.TemplateResponse, error)
 		Templates: []models.TemplateResponseItem{
 			{
 				UUID:        template.UUID,
+				Code:        template.Code,
 				Name:        template.Name,
 				Content:     template.Content,
 				Channel:     string(template.Channel),
@@ -273,6 +282,9 @@ func (a *TemplateAPI) ListTemplates(params models.TemplateListParams) (*models.T
 	if params.Tenant != "" {
 		query = query.Where("tenant = ?", params.Tenant)
 	}
+	if params.Code != "" {
+		query = query.Where("code = ?", params.Code)
+	}
 
 	// Get total count
 	var total int64
@@ -296,6 +308,7 @@ func (a *TemplateAPI) ListTemplates(params models.TemplateListParams) (*models.T
 	for _, template := range templates {
 		responseItem := models.TemplateResponseItem{
 			UUID:        template.UUID,
+			Code:        template.Code,
 			Name:        template.Name,
 			Content:     template.Content,
 			Channel:     string(template.Channel),

@@ -180,7 +180,7 @@ func (p *TwilioProvider) SendTemplate(to string, templateName string, params map
 
 	helper.Log.WithField("twilioTemplateID", contentSid).Debug("Using template ID for Twilio message")
 
-	// Convert params to a JSON string
+	// Convert params to a JSON string for Twilio's template variables
 	var contentVariables string
 	if len(params) > 0 {
 		paramsJSON, err := json.Marshal(params)
@@ -192,11 +192,16 @@ func (p *TwilioProvider) SendTemplate(to string, templateName string, params map
 		contentVariables = "{}"
 	}
 
+	// Set up the form data for the API request
 	formData := url.Values{}
 	formData.Set("From", p.FromNumber)
 	formData.Set("To", to)
 	formData.Set("ContentSid", contentSid)
 	formData.Set("ContentVariables", contentVariables)
+
+	// Note: We're not setting the Body field here because the content is passed
+	// through the ContentSid and ContentVariables fields for Twilio's WhatsApp templates.
+	// The template rendering happens at the consumer level before reaching this function.
 
 	return p.sendRequest(formData)
 }

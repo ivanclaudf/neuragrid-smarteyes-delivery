@@ -224,6 +224,7 @@ func (h *TemplateHandler) ListTemplates(w http.ResponseWriter, r *http.Request) 
 	// Get other filters
 	params.Channel = query.Get("channel")
 	params.Tenant = query.Get("tenant")
+	params.Code = query.Get("code")
 
 	// Call API to list templates
 	response, err := h.api.ListTemplates(params)

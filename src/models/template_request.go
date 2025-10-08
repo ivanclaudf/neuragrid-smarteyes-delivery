@@ -8,6 +8,7 @@ type TemplateRequest struct {
 // TemplateRequestItem represents a single template in the template request
 type TemplateRequestItem struct {
 	UUID        string `json:"uuid,omitempty"`
+	Code        string `json:"code" binding:"required"`
 	Name        string `json:"name" binding:"required"`
 	Content     string `json:"content" binding:"required"`
 	Channel     string `json:"channel" binding:"required"`
@@ -24,6 +25,7 @@ type TemplateResponse struct {
 // TemplateResponseItem represents a single template in the template response
 type TemplateResponseItem struct {
 	UUID        string `json:"uuid"`
+	Code        string `json:"code"`
 	Name        string `json:"name"`
 	Content     string `json:"content"`
 	Channel     string `json:"channel"`
@@ -40,4 +42,5 @@ type TemplateListParams struct {
 	Offset  int    `json:"offset" form:"offset"`
 	Channel string `json:"channel" form:"channel"`
 	Tenant  string `json:"tenant" form:"tenant"`
+	Code    string `json:"code" form:"code"`
 }
