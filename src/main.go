@@ -54,7 +54,7 @@ func main() {
 
 	// Register API routes for WhatsApp, Email, SMS, Providers, and Templates
 	handler.RegisterWhatsAppRoutes(r, db, readerDB, consumerManager.GetPulsarClient())
-	handler.RegisterEmailRoutes(r, db)
+	handler.RegisterEmailRoutes(r, db, readerDB, consumerManager.GetPulsarClient())
 	handler.RegisterSMSRoutes(r, db, readerDB, consumerManager.GetPulsarClient())
 	handler.RegisterProviderRoutes(r, db, readerDB)
 	handler.RegisterTemplateRoutes(r, db, readerDB)

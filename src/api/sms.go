@@ -9,6 +9,85 @@ import (
 	"gorm.io/gorm"
 )
 
+// SMSRequest represents the request body for sending SMS messages
+type SMSRequest struct {
+	Messages []SMSMessage `json:"messages" validate:"required,min=1"`
+}
+
+// SMSMessage represents a single SMS message
+type SMSMessage struct {
+	To          []SMSRecipient    `json:"to" validate:"required,min=1"`
+	From        string            `json:"from" validate:"required"`
+	Body        string            `json:"body"` // For backward compatibility, not required when using template
+	Template    string            `json:"template" validate:"required"`
+	Provider    string            `json:"provider" validate:"required,uuid4"`
+	RefNo       string            `json:"refno" validate:"required"`
+	Categories  []string          `json:"categories" validate:"required,min=1"`
+	Identifiers SMSIdentifiers    `json:"identifiers" validate:"required"`
+	Params      map[string]string `json:"params"`
+}
+
+// ToModelSMSMessage converts API SMSMessage to models.SMSMessage
+func (s *SMSMessage) ToModelSMSMessage() *models.SMSMessage {
+	modelMessage := &models.SMSMessage{
+		From:       s.From,
+		Body:       s.Body,
+		Template:   s.Template,
+		Provider:   s.Provider,
+		RefNo:      s.RefNo,
+		Categories: s.Categories,
+		Identifiers: models.SMSIdentifiers{
+			Tenant:     s.Identifiers.Tenant,
+			EventUUID:  s.Identifiers.EventUUID,
+			ActionUUID: s.Identifiers.ActionUUID,
+			ActionCode: s.Identifiers.ActionCode,
+		},
+		Params: s.Params,
+	}
+
+	// Convert recipients
+	modelMessage.To = make([]models.SMSRecipient, len(s.To))
+	for i, recipient := range s.To {
+		modelMessage.To[i] = models.SMSRecipient{
+			Telephone: recipient.Telephone,
+		}
+	}
+
+	return modelMessage
+}
+
+// SMSRecipient represents a recipient for an SMS message
+type SMSRecipient struct {
+	Telephone string `json:"telephone" validate:"required,e164"`
+}
+
+// SMSIdentifiers represents identifiers for an SMS message
+type SMSIdentifiers struct {
+	Tenant     string `json:"tenant" validate:"required"`
+	EventUUID  string `json:"eventUuid" validate:"omitempty,uuid4"`
+	ActionUUID string `json:"actionUuid" validate:"omitempty,uuid4"`
+	ActionCode string `json:"actionCode"`
+}
+
+// SMSResponse represents the response body for sending SMS messages
+type SMSResponse struct {
+	Messages []SMSMessageResponse `json:"messages"`
+}
+
+// SMSMessageResponse represents a response for a single SMS message
+type SMSMessageResponse struct {
+	RefNo string `json:"refno"`
+	UUID  string `json:"uuid"`
+}
+
+// CreateSMSMessageResponse creates a new SMSMessageResponse
+func CreateSMSMessageResponse(refNo string, uuid string) SMSMessageResponse {
+	return SMSMessageResponse{
+		RefNo: refNo,
+		UUID:  uuid,
+	}
+}
+
 // SMSAPI handles SMS business logic
 type SMSAPI struct {
 	DB          *gorm.DB
@@ -44,13 +123,13 @@ func NewSMSAPI(db *gorm.DB, readerDB *gorm.DB, pulsarClient *queue.PulsarClient)
 }
 
 // ProcessMessageBatch processes a batch of SMS messages
-func (a *SMSAPI) ProcessMessageBatch(request models.SMSRequest) ([]models.SMSMessageResponse, error) {
+func (a *SMSAPI) ProcessMessageBatch(request SMSRequest) ([]SMSMessageResponse, error) {
 	batchLogger := helper.Log.WithFields(map[string]interface{}{
 		"batchSize": len(request.Messages),
 	})
 
 	batchLogger.Info("Starting to process SMS message batch")
-	responses := []models.SMSMessageResponse{}
+	responses := []SMSMessageResponse{}
 
 	for idx, message := range request.Messages {
 		messageLogger := batchLogger.WithFields(map[string]interface{}{
@@ -77,17 +156,17 @@ func (a *SMSAPI) ProcessMessageBatch(request models.SMSRequest) ([]models.SMSMes
 		messageLogger.Info("Processing SMS message")
 
 		// Create a message response
-		messageResponse := models.SMSMessageResponse{
-			RefNo: message.RefNo,
-			UUID:  messageUUID,
-		}
+		messageResponse := CreateSMSMessageResponse(message.RefNo, messageUUID)
 
 		// Add to responses
 		responses = append(responses, messageResponse)
 
+		// Convert to model message
+		modelMessage := message.ToModelSMSMessage()
+
 		// Send to queue
 		messageLogger.Debug("Sending SMS message to queue")
-		if err := a.SMSProducer.ProduceSMSMessage(&message, messageUUID); err != nil {
+		if err := a.SMSProducer.ProduceSMSMessage(modelMessage, messageUUID); err != nil {
 			messageLogger.WithError(err).Error("Failed to produce SMS message to queue")
 			return nil, errors.New("failed to process message: " + err.Error())
 		}

@@ -3,7 +3,6 @@ package handler
 import (
 	"delivery/api"
 	"delivery/helper"
-	"delivery/models"
 	"net/http"
 	"strconv"
 
@@ -47,7 +46,7 @@ func RegisterProviderRoutes(r *mux.Router, db *gorm.DB, readerDB *gorm.DB) {
 
 // CreateProviders handles the creation of new providers
 func (h *ProviderHandler) CreateProviders(w http.ResponseWriter, r *http.Request) {
-	var request models.ProviderRequest
+	var request api.ProviderRequest
 	if err := helper.ValidateRequestBody(r, &request); err != nil {
 		helper.Log.WithFields(logrus.Fields{
 			"handler": "CreateProviders",
@@ -93,7 +92,7 @@ func (h *ProviderHandler) UpdateProvider(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var request models.ProviderRequest
+	var request api.ProviderRequest
 	if err := helper.ValidateRequestBody(r, &request); err != nil {
 		helper.Log.WithFields(logrus.Fields{
 			"handler": "UpdateProvider",

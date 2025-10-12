@@ -98,6 +98,61 @@ Send WhatsApp template messages to recipients. Messages are queued and processed
 }
 ```
 
+**Template Message Request:**
+
+```json
+{
+  "type": "template",
+  "to": "+15551234567",
+  "templateName": "appointment_reminder",
+  "params": {
+    "name": "John Doe",
+    "date": "2025-10-10",
+    "time": "14:30"
+  },
+  "provider": "0bca5714-bceb-49a4-a4eb-e3afcec26328"
+}
+```
+
+**Parameters (Common):**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| type | string | Yes | Message type: "text", "media", or "template" |
+| to | string | Yes | Phone number in E.164 format (with "+" prefix) |
+| provider | string | Yes | UUID of the provider to use |
+
+**Parameters (Text Message):**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| message | string | Yes | Text message content |
+
+**Parameters (Media Message):**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| caption | string | No | Optional caption for the media |
+| mediaType | string | Yes | Type of media: "image", "video", "document", etc. |
+| mediaUrl | string | Yes | URL where the media is hosted |
+
+**Parameters (Template Message):**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| templateName | string | Yes | Name of the pre-approved template |
+| params | object | Yes | Key-value pairs for template variables |
+
+**Response (Success):**
+
+```json
+{
+  "code": 200,
+  "message": "WhatsApp message sent successfully",
+  "messageId": "wamid.HBgLMTUzMDQxNzc5NDQVAgARGBIzREVCOUQwQzRDMjFERDU0OAA="
+}
+```
+
 ## SMS API
 
 ### `POST /api/v1/sms`
@@ -164,6 +219,112 @@ Send SMS messages to recipients. Messages are queued and processed asynchronousl
 }
 ```
 
+## Email API
+
+### `POST /api/v1/email`
+
+Send emails to recipients. Messages are queued and processed asynchronously.
+
+**Request:**
+
+```json
+{
+  "messages": [
+    {
+      "from": {
+        "name": "Sender Name",
+        "email": "sender@example.com"
+      },
+      "to": [
+        {
+          "name": "Recipient Name",
+          "email": "recipient@example.com"
+        }
+      ],
+      "cc": [
+        {
+          "name": "CC Recipient",
+          "email": "cc@example.com"
+        }
+      ],
+      "bcc": [
+        {
+          "email": "bcc@example.com"
+        }
+      ],
+      "subject": "Email Subject",
+      "body": "<h1>Email content</h1><p>Hello {{name}},</p>",
+      "isHtml": true,
+      "provider": "0bca5714-bceb-49a4-a4eb-e3afcec26328",
+      "refno": "000000000003",
+      "categories": [
+        "notifications"
+      ],
+      "identifiers": {
+        "tenant": "example-tenant",
+        "eventUuid": "0bca5714-bceb-49a4-a4eb-e3afcec26328"
+      },
+      "params": {
+        "name": "John"
+      },
+      "attachments": {
+        "inline": [
+          {
+            "filename": "logo.png",
+            "type": "image/png",
+            "content": "base64 encoded file content",
+            "contentId": "logo"
+          }
+        ],
+        "regular": [
+          {
+            "filename": "document.pdf",
+            "type": "application/pdf",
+            "content": "base64 encoded file content"
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| messages | array | Yes | Array of message objects to send |
+| messages[].from | object | Yes | Sender information |
+| messages[].from.name | string | No | Sender name |
+| messages[].from.email | string | Yes | Sender email address |
+| messages[].to | array | Yes | Array of recipient objects |
+| messages[].to[].name | string | No | Recipient name |
+| messages[].to[].email | string | Yes | Recipient email address |
+| messages[].cc | array | No | Array of CC recipient objects |
+| messages[].bcc | array | No | Array of BCC recipient objects |
+| messages[].subject | string | Yes | Email subject |
+| messages[].body | string | Yes | Email content |
+| messages[].isHtml | boolean | No | Whether the body is HTML (true) or plain text (false). Default is false |
+| messages[].provider | string | Yes | UUID of the provider to use |
+| messages[].refno | string | Yes | Reference number for tracking |
+| messages[].categories | array | Yes | Array of category strings |
+| messages[].identifiers | object | Yes | Identifiers for message tracking |
+| messages[].params | object | No | Template parameters for content |
+| messages[].attachments | object | No | Email attachments |
+
+**Response:**
+
+```json
+{
+  "messages": [
+    {
+      "refno": "000000000003",
+      "uuid": "c3d4e5f6-7890-1234-abcd-567890123456"
+    }
+  ]
+}
+```
+
 ## Template API
 
 ### `POST /api/v1/templates`
@@ -177,6 +338,7 @@ Create a new template.
   "templates": [{
     "code": "alert-template",
     "name": "Alert Template",
+    "subject": "Important Alert Notification",
     "content": "Hello {{name}}, there has been an alert in your area.",
     "status": 1,
     "channel": "WHATSAPP",
@@ -196,6 +358,7 @@ Create a new template.
 | templates | array | Yes | Array containing at least one template object |
 | templates[].code | string | Yes | Unique code for the template (unique per tenant, cannot be edited after creation) |
 | templates[].name | string | Yes | Name of the template |
+| templates[].subject | string | No | Subject line for EMAIL templates |
 | templates[].content | string | Yes | Content of the template |
 | templates[].status | number | No | Status of the template (0=inactive, 1=active). Default is 0 |
 | templates[].channel | string | Yes | Channel for the template (WHATSAPP, SMS, EMAIL) |
@@ -212,6 +375,7 @@ Create a new template.
       "uuid": "a1b2c3d4-e5f6-7890-abcd-1234567890ab",
       "code": "alert-template",
       "name": "Alert Template",
+      "subject": "Important Alert Notification",
       "content": "Hello {{name}}, there has been an alert in your area.",
       "status": 1,
       "channel": "WHATSAPP",
@@ -250,6 +414,7 @@ Get all templates with optional filtering.
     {
       "uuid": "a1b2c3d4-e5f6-7890-abcd-1234567890ab",
       "name": "Alert Template",
+      "subject": "Important Alert Notification",
       "content": "Hello {{name}}, there has been an alert in your area.",
       "status": 1,
       "channel": "WHATSAPP",
@@ -278,6 +443,7 @@ Get a template by UUID.
     {
       "uuid": "a1b2c3d4-e5f6-7890-abcd-1234567890ab",
       "name": "Alert Template",
+      "subject": "Important Alert Notification",
       "content": "Hello {{name}}, there has been an alert in your area.",
       "status": 1,
       "channel": "WHATSAPP",
@@ -303,13 +469,13 @@ Update a template by UUID.
 {
   "templates": [{
     "name": "Updated Alert Template",
+    "subject": "Updated Alert Notification",
     "content": "Hello {{name}}, there has been an important alert in your area.",
     "templateIds": {
       "twilio": "HM123456_UPDATED",
       "messagebird": "mb-template-5678"
     },
     "status": 1
-    /* Note: code field cannot be edited after creation */
   }]
 }
 ```
@@ -328,6 +494,7 @@ Update a template by UUID.
       "uuid": "a1b2c3d4-e5f6-7890-abcd-1234567890ab",
       "code": "alert-template",
       "name": "Updated Alert Template",
+      "subject": "Updated Alert Notification",
       "content": "Hello {{name}}, there has been an important alert in your area.",
       "status": 1,
       "channel": "WHATSAPP",
@@ -526,212 +693,5 @@ Update a provider by UUID.
       "updatedAt": "2025-10-06T13:15:00Z"
     }
   ]
-}
-```
-
-## Email API
-
-### `POST /api/v1/emails/`
-
-Send an email to one or more recipients.
-
-**Request:**
-
-```json
-{
-  "to": ["recipient@example.com", "another@example.com"],
-  "subject": "Your email subject",
-  "body": "Your email content goes here...",
-  "isHtml": true,
-  "attachments": [
-    {
-      "filename": "document.pdf",
-      "contentType": "application/pdf",
-      "content": "base64EncodedContent..."
-    }
-  ]
-}
-```
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| to | array of strings | Yes | Email recipients |
-| subject | string | Yes | Email subject line |
-| body | string | Yes | Email body content |
-| isHtml | boolean | Yes | Whether the body is HTML (true) or plain text (false) |
-| attachments | array of objects | No | Optional file attachments |
-
-**Attachment Object:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| filename | string | Yes | Name of the attachment file |
-| contentType | string | Yes | MIME type of the attachment |
-| content | string | Yes | Base64-encoded file content |
-
-**Response (Success):**
-
-```json
-{
-  "code": 200,
-  "message": "Email sent successfully"
-}
-```
-
-**Response (Error):**
-
-```json
-{
-  "code": 400,
-  "message": "Invalid request body"
-}
-```
-
-## SMS API
-
-### `POST /api/v1/sms/`
-
-Send an SMS to one recipient or bulk messages to multiple recipients.
-
-**Single SMS Request:**
-
-```json
-{
-  "to": "+15551234567",
-  "message": "Your SMS message here"
-}
-```
-
-**Bulk SMS Request:**
-
-```json
-{
-  "to": ["+15551234567", "+15557654321"],
-  "message": "Your bulk SMS message here"
-}
-```
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| to | string or array of strings | Yes | Phone number(s) in E.164 format (with "+" prefix) |
-| message | string | Yes | SMS message content |
-
-**Response (Success - Single):**
-
-```json
-{
-  "code": 200,
-  "message": "SMS sent successfully"
-}
-```
-
-**Response (Success - Bulk):**
-
-```json
-{
-  "code": 200,
-  "message": "Bulk SMS sent successfully"
-}
-```
-
-**Response (Error):**
-
-```json
-{
-  "code": 400,
-  "message": "Invalid phone number format"
-}
-```
-
-## WhatsApp API
-
-### `POST /api/v1/whatsapp/`
-
-Send a WhatsApp message (text, media, or template).
-
-**Text Message Request:**
-
-```json
-{
-  "type": "text",
-  "to": "+15551234567",
-  "message": "Your WhatsApp message here"
-}
-```
-
-**Media Message Request:**
-
-```json
-{
-  "type": "media",
-  "to": "+15551234567",
-  "caption": "Image caption",
-  "mediaType": "image",
-  "mediaUrl": "https://example.com/image.jpg"
-}
-```
-
-**Template Message Request:**
-
-```json
-{
-  "type": "template",
-  "to": "+15551234567",
-  "templateName": "appointment_reminder",
-  "params": {
-    "name": "John Doe",
-    "date": "2025-10-10",
-    "time": "14:30"
-  }
-}
-```
-
-**Parameters (Common):**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| type | string | Yes | Message type: "text", "media", or "template" |
-| to | string | Yes | Phone number in E.164 format (with "+" prefix) |
-
-**Parameters (Text Message):**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| message | string | Yes | Text message content |
-
-**Parameters (Media Message):**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| caption | string | No | Optional caption for the media |
-| mediaType | string | Yes | Type of media: "image", "video", "document", etc. |
-| mediaUrl | string | Yes | URL where the media is hosted |
-
-**Parameters (Template Message):**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| templateName | string | Yes | Name of the pre-approved template |
-| params | object | Yes | Key-value pairs for template variables |
-
-**Response (Success):**
-
-```json
-{
-  "code": 200,
-  "message": "WhatsApp message sent successfully"
-}
-```
-
-**Response (Error):**
-
-```json
-{
-  "code": 400,
-  "message": "Invalid message type"
 }
 ```

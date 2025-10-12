@@ -10,6 +10,51 @@ import (
 	"gorm.io/gorm"
 )
 
+// ProviderRequest represents the request body for provider management APIs
+type ProviderRequest struct {
+	Providers []ProviderRequestItem `json:"providers" binding:"required,min=1"`
+}
+
+// ProviderRequestItem represents a single provider in the provider request
+type ProviderRequestItem struct {
+	UUID         string      `json:"uuid,omitempty"`
+	Code         string      `json:"code" binding:"required"`
+	Provider     string      `json:"provider" binding:"required"` // Implementation class name (e.g. twilio)
+	Name         string      `json:"name" binding:"required"`
+	Config       models.JSON `json:"config" binding:"required"`
+	SecureConfig models.JSON `json:"secureConfig" binding:"required"`
+	Channel      string      `json:"channel" binding:"required"`
+	Tenant       string      `json:"tenant" binding:"required"`
+	Status       *int        `json:"status,omitempty"`
+}
+
+// ProviderResponse represents the response body for provider management APIs
+type ProviderResponse struct {
+	Providers []ProviderResponseItem `json:"providers"`
+}
+
+// ProviderResponseItem represents a single provider in the provider response
+type ProviderResponseItem struct {
+	UUID      string      `json:"uuid"`
+	Code      string      `json:"code"`
+	Provider  string      `json:"provider"`
+	Name      string      `json:"name"`
+	Config    models.JSON `json:"config"`
+	Channel   string      `json:"channel"`
+	Tenant    string      `json:"tenant"`
+	Status    int         `json:"status"`
+	CreatedAt string      `json:"createdAt"`
+	UpdatedAt string      `json:"updatedAt"`
+}
+
+// ProviderListParams represents parameters for listing providers
+type ProviderListParams struct {
+	Limit   int    `json:"limit" form:"limit"`
+	Offset  int    `json:"offset" form:"offset"`
+	Channel string `json:"channel" form:"channel"`
+	Tenant  string `json:"tenant" form:"tenant"`
+}
+
 // ProviderAPI handles provider business logic
 type ProviderAPI struct {
 	DB       *gorm.DB
@@ -37,7 +82,7 @@ func NewProviderAPI(db *gorm.DB, readerDB *gorm.DB) (*ProviderAPI, error) {
 }
 
 // CreateProviders creates new providers
-func (a *ProviderAPI) CreateProviders(request models.ProviderRequest) (*models.ProviderResponse, error) {
+func (a *ProviderAPI) CreateProviders(request ProviderRequest) (*ProviderResponse, error) {
 	logger := helper.Log.WithFields(logrus.Fields{
 		"component": "ProviderAPI",
 		"method":    "CreateProviders",
@@ -49,8 +94,8 @@ func (a *ProviderAPI) CreateProviders(request models.ProviderRequest) (*models.P
 	// The validation for required fields is now handled by binding tags
 	// We'll just do provider-specific validation here
 
-	response := &models.ProviderResponse{
-		Providers: make([]models.ProviderResponseItem, 0, len(request.Providers)),
+	response := &ProviderResponse{
+		Providers: make([]ProviderResponseItem, 0, len(request.Providers)),
 	}
 
 	for idx, providerItem := range request.Providers {
@@ -103,7 +148,7 @@ func (a *ProviderAPI) CreateProviders(request models.ProviderRequest) (*models.P
 		providerLogger.WithField("uuid", provider.UUID).Info("Provider created successfully")
 
 		// Add to response
-		responseItem := models.ProviderResponseItem{
+		responseItem := ProviderResponseItem{
 			UUID:      provider.UUID,
 			Code:      provider.Code,
 			Provider:  provider.Provider,
@@ -124,7 +169,7 @@ func (a *ProviderAPI) CreateProviders(request models.ProviderRequest) (*models.P
 }
 
 // UpdateProvider updates an existing provider
-func (a *ProviderAPI) UpdateProvider(uuid string, request models.ProviderRequest) (*models.ProviderResponse, error) {
+func (a *ProviderAPI) UpdateProvider(uuid string, request ProviderRequest) (*ProviderResponse, error) {
 	logger := helper.Log.WithFields(logrus.Fields{
 		"component": "ProviderAPI",
 		"method":    "UpdateProvider",
@@ -242,8 +287,8 @@ func (a *ProviderAPI) UpdateProvider(uuid string, request models.ProviderRequest
 	logger.Debug("Retrieved updated provider details")
 
 	// Create response
-	response := &models.ProviderResponse{
-		Providers: []models.ProviderResponseItem{
+	response := &ProviderResponse{
+		Providers: []ProviderResponseItem{
 			{
 				UUID:      provider.UUID,
 				Code:      provider.Code,
@@ -264,7 +309,7 @@ func (a *ProviderAPI) UpdateProvider(uuid string, request models.ProviderRequest
 }
 
 // GetProvider retrieves a single provider by UUID
-func (a *ProviderAPI) GetProvider(uuid string) (*models.ProviderResponse, error) {
+func (a *ProviderAPI) GetProvider(uuid string) (*ProviderResponse, error) {
 	logger := helper.Log.WithFields(logrus.Fields{
 		"component": "ProviderAPI",
 		"method":    "GetProvider",
@@ -294,8 +339,8 @@ func (a *ProviderAPI) GetProvider(uuid string) (*models.ProviderResponse, error)
 	}).Debug("Provider found")
 
 	// Create response
-	response := &models.ProviderResponse{
-		Providers: []models.ProviderResponseItem{
+	response := &ProviderResponse{
+		Providers: []ProviderResponseItem{
 			{
 				UUID:      provider.UUID,
 				Code:      provider.Code,
@@ -316,7 +361,7 @@ func (a *ProviderAPI) GetProvider(uuid string) (*models.ProviderResponse, error)
 }
 
 // ListProviders retrieves a list of providers with pagination
-func (a *ProviderAPI) ListProviders(limit int, offset int, channel string, tenant string) (*models.ProviderResponse, int64, error) {
+func (a *ProviderAPI) ListProviders(limit int, offset int, channel string, tenant string) (*ProviderResponse, int64, error) {
 	logger := helper.Log.WithFields(logrus.Fields{
 		"component": "ProviderAPI",
 		"method":    "ListProviders",
@@ -372,9 +417,9 @@ func (a *ProviderAPI) ListProviders(limit int, offset int, channel string, tenan
 	logger.WithField("retrieved_count", len(providers)).Debug("Retrieved providers")
 
 	// Create response
-	responseItems := make([]models.ProviderResponseItem, 0, len(providers))
+	responseItems := make([]ProviderResponseItem, 0, len(providers))
 	for _, provider := range providers {
-		responseItem := models.ProviderResponseItem{
+		responseItem := ProviderResponseItem{
 			UUID:      provider.UUID,
 			Code:      provider.Code,
 			Provider:  provider.Provider,
@@ -389,7 +434,7 @@ func (a *ProviderAPI) ListProviders(limit int, offset int, channel string, tenan
 		responseItems = append(responseItems, responseItem)
 	}
 
-	response := &models.ProviderResponse{
+	response := &ProviderResponse{
 		Providers: responseItems,
 	}
 

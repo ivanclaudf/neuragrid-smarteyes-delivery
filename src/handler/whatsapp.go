@@ -3,7 +3,6 @@ package handler
 import (
 	"delivery/api"
 	"delivery/helper"
-	"delivery/models"
 	"delivery/services/queue"
 	"net/http"
 
@@ -50,7 +49,7 @@ func RegisterWhatsAppRoutes(r *mux.Router, db *gorm.DB, readerDB *gorm.DB, pulsa
 
 // HandleWhatsAppRequest handles the WhatsApp request
 func (h *WhatsAppHandler) HandleWhatsAppRequest(w http.ResponseWriter, r *http.Request) {
-	var request models.WhatsAppRequest
+	var request api.WhatsAppRequest
 
 	if err := helper.ValidateRequestBody(r, &request); err != nil {
 		helper.RespondWithError(w, http.StatusBadRequest, helper.CodeBadRequest, helper.MsgInvalidRequestBody)
@@ -65,7 +64,7 @@ func (h *WhatsAppHandler) HandleWhatsAppRequest(w http.ResponseWriter, r *http.R
 	}
 
 	// Wrap responses in a "messages" object
-	responseWrapper := models.WhatsAppResponse{
+	responseWrapper := api.WhatsAppResponse{
 		Messages: responses,
 	}
 

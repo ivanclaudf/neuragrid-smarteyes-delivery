@@ -1,5 +1,9 @@
 package services
 
+import (
+	"delivery/api/types"
+)
+
 // WhatsAppService defines operations for sending WhatsApp messages
 type WhatsAppService interface {
 	// Send a text message to a recipient
@@ -14,5 +18,5 @@ type WhatsAppService interface {
 	SendTemplate(to string, templateName string, params map[string]string) error
 
 	// Get WhatsApp message delivery status by message ID
-	GetStatus(messageID string) (DeliveryStatus, error)
+	GetStatus(messageID string) (types.DeliveryStatus, error)
 }

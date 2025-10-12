@@ -2,9 +2,9 @@ package whatsapp
 
 import (
 	"bytes"
+	apitypes "delivery/api/types"
 	"delivery/helper"
 	"delivery/models"
-	"delivery/services"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,8 +63,7 @@ func NewTwilioProviderFromDB(provider *models.Provider) (*TwilioProvider, error)
 	// Get encryption key from environment
 	encryptionKey := []byte(helper.GetEnv("ENCRYPTION_KEY", ""))
 	if len(encryptionKey) != 32 {
-		// For development, use a fixed key if not provided
-		encryptionKey = []byte("12345678901234567890123456789012")
+		return nil, errors.New("ENCRYPTION_KEY environment variable not set or invalid (must be exactly 32 bytes)")
 	}
 
 	// Check if the config is encrypted
@@ -278,25 +277,25 @@ func (p *TwilioProvider) sendRequest(formData url.Values) error {
 }
 
 // GetStatus implements the WhatsAppService.GetStatus method
-func (p *TwilioProvider) GetStatus(messageID string) (services.DeliveryStatus, error) {
+func (p *TwilioProvider) GetStatus(messageID string) (apitypes.DeliveryStatus, error) {
 	endpoint := fmt.Sprintf("%s/Accounts/%s/Messages/%s.json", p.BaseURL, p.AccountSID, messageID)
 
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
-		return services.DeliveryStatus{}, err
+		return apitypes.DeliveryStatus{}, err
 	}
 
 	req.SetBasicAuth(p.AccountSID, p.AuthToken)
 
 	resp, err := p.Client.Do(req)
 	if err != nil {
-		return services.DeliveryStatus{}, err
+		return apitypes.DeliveryStatus{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return services.DeliveryStatus{}, fmt.Errorf("twilio API error: %s, status code: %d", string(body), resp.StatusCode)
+		return apitypes.DeliveryStatus{}, fmt.Errorf("twilio API error: %s, status code: %d", string(body), resp.StatusCode)
 	}
 
 	var messageData struct {
@@ -309,11 +308,11 @@ func (p *TwilioProvider) GetStatus(messageID string) (services.DeliveryStatus, e
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(resp.Body)
 	if err != nil {
-		return services.DeliveryStatus{}, err
+		return apitypes.DeliveryStatus{}, err
 	}
 
 	if err := json.Unmarshal(buf.Bytes(), &messageData); err != nil {
-		return services.DeliveryStatus{}, err
+		return apitypes.DeliveryStatus{}, err
 	}
 
 	details := ""
@@ -321,7 +320,7 @@ func (p *TwilioProvider) GetStatus(messageID string) (services.DeliveryStatus, e
 		details = fmt.Sprintf("Error code: %s, Error message: %s", messageData.ErrorCode, messageData.ErrorMessage)
 	}
 
-	return services.DeliveryStatus{
+	return apitypes.DeliveryStatus{
 		MessageID: messageID,
 		Status:    messageData.Status,
 		Details:   details,

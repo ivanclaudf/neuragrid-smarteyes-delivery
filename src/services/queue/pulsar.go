@@ -173,6 +173,19 @@ func (cm *ConsumerManager) StartConsumers() error {
 		return err
 	}
 
+	// Start Email consumer
+	emailConsumer, err := NewEmailConsumer(cm.pulsarClient, cm.db, cm.readerDB)
+	if err != nil {
+		helper.Log.Errorf("Failed to create Email consumer: %v", err)
+		return err
+	}
+
+	err = emailConsumer.Start()
+	if err != nil {
+		helper.Log.Errorf("Failed to start Email consumer: %v", err)
+		return err
+	}
+
 	return nil
 }
 

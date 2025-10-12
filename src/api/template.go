@@ -9,6 +9,53 @@ import (
 	"gorm.io/gorm"
 )
 
+// TemplateRequest represents the request body for template management APIs
+type TemplateRequest struct {
+	Templates []TemplateRequestItem `json:"templates" binding:"required,min=1"`
+}
+
+// TemplateRequestItem represents a single template in the template request
+type TemplateRequestItem struct {
+	UUID        string      `json:"uuid,omitempty"`
+	Code        string      `json:"code" binding:"required"`
+	Name        string      `json:"name" binding:"required"`
+	Subject     string      `json:"subject"`
+	Content     string      `json:"content" binding:"required"`
+	Channel     string      `json:"channel" binding:"required"`
+	TemplateIds models.JSON `json:"templateIds"`
+	Tenant      string      `json:"tenant" binding:"required"`
+	Status      *int        `json:"status,omitempty"`
+}
+
+// TemplateResponse represents the response body for template management APIs
+type TemplateResponse struct {
+	Templates []TemplateResponseItem `json:"templates"`
+}
+
+// TemplateResponseItem represents a single template in the template response
+type TemplateResponseItem struct {
+	UUID        string      `json:"uuid"`
+	Code        string      `json:"code"`
+	Name        string      `json:"name"`
+	Subject     string      `json:"subject"`
+	Content     string      `json:"content"`
+	Channel     string      `json:"channel"`
+	TemplateIds models.JSON `json:"templateIds"`
+	Tenant      string      `json:"tenant"`
+	Status      int         `json:"status"`
+	CreatedAt   string      `json:"createdAt"`
+	UpdatedAt   string      `json:"updatedAt"`
+}
+
+// TemplateListParams represents parameters for listing templates
+type TemplateListParams struct {
+	Limit   int    `json:"limit" form:"limit"`
+	Offset  int    `json:"offset" form:"offset"`
+	Channel string `json:"channel" form:"channel"`
+	Tenant  string `json:"tenant" form:"tenant"`
+	Code    string `json:"code" form:"code"`
+}
+
 // TemplateAPI handles template business logic
 type TemplateAPI struct {
 	DB       *gorm.DB
@@ -36,7 +83,7 @@ func NewTemplateAPI(db *gorm.DB, readerDB *gorm.DB) (*TemplateAPI, error) {
 }
 
 // CreateTemplates creates new templates
-func (a *TemplateAPI) CreateTemplates(request models.TemplateRequest) (*models.TemplateResponse, error) {
+func (a *TemplateAPI) CreateTemplates(request TemplateRequest) (*TemplateResponse, error) {
 	logger := helper.Log.WithFields(logrus.Fields{
 		"component": "TemplateAPI",
 		"method":    "CreateTemplates",
@@ -45,8 +92,8 @@ func (a *TemplateAPI) CreateTemplates(request models.TemplateRequest) (*models.T
 
 	logger.Info("Creating new templates")
 
-	response := &models.TemplateResponse{
-		Templates: make([]models.TemplateResponseItem, 0, len(request.Templates)),
+	response := &TemplateResponse{
+		Templates: make([]TemplateResponseItem, 0, len(request.Templates)),
 	}
 
 	for idx, templateItem := range request.Templates {
@@ -71,6 +118,7 @@ func (a *TemplateAPI) CreateTemplates(request models.TemplateRequest) (*models.T
 			UUID:        uuid,
 			Code:        templateItem.Code,
 			Name:        templateItem.Name,
+			Subject:     templateItem.Subject,
 			Content:     templateItem.Content,
 			Channel:     models.Channel(templateItem.Channel),
 			TemplateIds: templateItem.TemplateIds,
@@ -91,10 +139,11 @@ func (a *TemplateAPI) CreateTemplates(request models.TemplateRequest) (*models.T
 		templateLogger.WithField("uuid", template.UUID).Info("Template created successfully")
 
 		// Add to response
-		responseItem := models.TemplateResponseItem{
+		responseItem := TemplateResponseItem{
 			UUID:        template.UUID,
 			Code:        template.Code,
 			Name:        template.Name,
+			Subject:     template.Subject,
 			Content:     template.Content,
 			Channel:     string(template.Channel),
 			TemplateIds: template.TemplateIds,
@@ -112,7 +161,7 @@ func (a *TemplateAPI) CreateTemplates(request models.TemplateRequest) (*models.T
 }
 
 // UpdateTemplate updates an existing template
-func (a *TemplateAPI) UpdateTemplate(uuid string, request models.TemplateRequest) (*models.TemplateResponse, error) {
+func (a *TemplateAPI) UpdateTemplate(uuid string, request TemplateRequest) (*TemplateResponse, error) {
 	logger := helper.Log.WithFields(logrus.Fields{
 		"component": "TemplateAPI",
 		"method":    "UpdateTemplate",
@@ -165,6 +214,11 @@ func (a *TemplateAPI) UpdateTemplate(uuid string, request models.TemplateRequest
 		updates["content"] = templateItem.Content
 	}
 
+	// Add subject update if provided
+	if templateItem.Subject != "" {
+		updates["subject"] = templateItem.Subject
+	}
+
 	if templateItem.TemplateIds != nil {
 		updates["template_ids"] = templateItem.TemplateIds
 	}
@@ -189,12 +243,13 @@ func (a *TemplateAPI) UpdateTemplate(uuid string, request models.TemplateRequest
 	}
 
 	// Create response
-	response := &models.TemplateResponse{
-		Templates: []models.TemplateResponseItem{
+	response := &TemplateResponse{
+		Templates: []TemplateResponseItem{
 			{
 				UUID:        template.UUID,
 				Code:        template.Code,
 				Name:        template.Name,
+				Subject:     template.Subject,
 				Content:     template.Content,
 				Channel:     string(template.Channel),
 				TemplateIds: template.TemplateIds,
@@ -211,7 +266,7 @@ func (a *TemplateAPI) UpdateTemplate(uuid string, request models.TemplateRequest
 }
 
 // GetTemplate retrieves a template by UUID
-func (a *TemplateAPI) GetTemplate(uuid string) (*models.TemplateResponse, error) {
+func (a *TemplateAPI) GetTemplate(uuid string) (*TemplateResponse, error) {
 	logger := helper.Log.WithFields(logrus.Fields{
 		"component": "TemplateAPI",
 		"method":    "GetTemplate",
@@ -219,11 +274,6 @@ func (a *TemplateAPI) GetTemplate(uuid string) (*models.TemplateResponse, error)
 	})
 
 	logger.Info("Retrieving template")
-
-	if uuid == "" {
-		logger.Error("Missing template UUID")
-		return nil, fmt.Errorf("missing template UUID")
-	}
 
 	// Get template
 	var template models.Template
@@ -233,12 +283,13 @@ func (a *TemplateAPI) GetTemplate(uuid string) (*models.TemplateResponse, error)
 	}
 
 	// Create response
-	response := &models.TemplateResponse{
-		Templates: []models.TemplateResponseItem{
+	response := &TemplateResponse{
+		Templates: []TemplateResponseItem{
 			{
 				UUID:        template.UUID,
 				Code:        template.Code,
 				Name:        template.Name,
+				Subject:     template.Subject,
 				Content:     template.Content,
 				Channel:     string(template.Channel),
 				TemplateIds: template.TemplateIds,
@@ -255,7 +306,7 @@ func (a *TemplateAPI) GetTemplate(uuid string) (*models.TemplateResponse, error)
 }
 
 // ListTemplates lists templates with optional filtering
-func (a *TemplateAPI) ListTemplates(params models.TemplateListParams) (*models.TemplateResponse, error) {
+func (a *TemplateAPI) ListTemplates(params TemplateListParams) (*TemplateResponse, error) {
 	logger := helper.Log.WithFields(logrus.Fields{
 		"component": "TemplateAPI",
 		"method":    "ListTemplates",
@@ -301,15 +352,16 @@ func (a *TemplateAPI) ListTemplates(params models.TemplateListParams) (*models.T
 	}
 
 	// Build response
-	response := &models.TemplateResponse{
-		Templates: make([]models.TemplateResponseItem, 0, len(templates)),
+	response := &TemplateResponse{
+		Templates: make([]TemplateResponseItem, 0, len(templates)),
 	}
 
 	for _, template := range templates {
-		responseItem := models.TemplateResponseItem{
+		responseItem := TemplateResponseItem{
 			UUID:        template.UUID,
 			Code:        template.Code,
 			Name:        template.Name,
+			Subject:     template.Subject,
 			Content:     template.Content,
 			Channel:     string(template.Channel),
 			TemplateIds: template.TemplateIds,

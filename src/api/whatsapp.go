@@ -9,6 +9,113 @@ import (
 	"gorm.io/gorm"
 )
 
+// WhatsAppRequest represents the request body for sending WhatsApp messages
+type WhatsAppRequest struct {
+	Messages []WhatsAppMessage `json:"messages" validate:"required,min=1"`
+}
+
+// WhatsAppMessage represents a single WhatsApp message
+type WhatsAppMessage struct {
+	Template    string               `json:"template" validate:"required"`
+	To          []WhatsAppRecipient  `json:"to" validate:"required,min=1"`
+	Provider    string               `json:"provider" validate:"required,uuid4"`
+	RefNo       string               `json:"refno" validate:"required"`
+	Categories  []string             `json:"categories" validate:"required,min=1"`
+	Identifiers WhatsAppIdentifiers  `json:"identifiers" validate:"required"`
+	Params      map[string]string    `json:"params"`
+	Attachments *WhatsAppAttachments `json:"attachments"`
+}
+
+// ToModelWhatsAppMessage converts API WhatsAppMessage to models.WhatsAppMessage
+func (w *WhatsAppMessage) ToModelWhatsAppMessage() *models.WhatsAppMessage {
+	modelMessage := &models.WhatsAppMessage{
+		Template:   w.Template,
+		Provider:   w.Provider,
+		RefNo:      w.RefNo,
+		Categories: w.Categories,
+		Identifiers: models.WhatsAppIdentifiers{
+			Tenant:     w.Identifiers.Tenant,
+			EventUUID:  w.Identifiers.EventUUID,
+			ActionUUID: w.Identifiers.ActionUUID,
+			ActionCode: w.Identifiers.ActionCode,
+		},
+		Params: w.Params,
+	}
+
+	// Convert recipients
+	modelMessage.To = make([]models.WhatsAppRecipient, len(w.To))
+	for i, recipient := range w.To {
+		modelMessage.To[i] = models.WhatsAppRecipient{
+			Name:      recipient.Name,
+			Telephone: recipient.Telephone,
+		}
+	}
+
+	// Convert attachments if present
+	if w.Attachments != nil {
+		modelAttachments := &models.WhatsAppAttachments{
+			Inline: make([]models.WhatsAppInlineAttachment, len(w.Attachments.Inline)),
+		}
+		for i, attachment := range w.Attachments.Inline {
+			modelAttachments.Inline[i] = models.WhatsAppInlineAttachment{
+				Filename:  attachment.Filename,
+				Type:      attachment.Type,
+				Content:   attachment.Content,
+				ContentID: attachment.ContentID,
+			}
+		}
+		modelMessage.Attachments = modelAttachments
+	}
+
+	return modelMessage
+}
+
+// WhatsAppRecipient represents a recipient for a WhatsApp message
+type WhatsAppRecipient struct {
+	Name      string `json:"name"`
+	Telephone string `json:"telephone" validate:"required,e164"`
+}
+
+// WhatsAppIdentifiers represents identifiers for a WhatsApp message
+type WhatsAppIdentifiers struct {
+	Tenant     string `json:"tenant" validate:"required"`
+	EventUUID  string `json:"eventUuid" validate:"omitempty,uuid4"`
+	ActionUUID string `json:"actionUuid" validate:"omitempty,uuid4"`
+	ActionCode string `json:"actionCode"`
+}
+
+// WhatsAppAttachments represents attachments for a WhatsApp message
+type WhatsAppAttachments struct {
+	Inline []WhatsAppInlineAttachment `json:"inline"`
+}
+
+// WhatsAppInlineAttachment represents an inline attachment for a WhatsApp message
+type WhatsAppInlineAttachment struct {
+	Filename  string `json:"filename" validate:"required"`
+	Type      string `json:"type" validate:"required"`
+	Content   string `json:"content" validate:"required"`
+	ContentID string `json:"contentId" validate:"required"`
+}
+
+// WhatsAppResponse represents the response body for sending WhatsApp messages
+type WhatsAppResponse struct {
+	Messages []WhatsAppMessageResponse `json:"messages"`
+}
+
+// WhatsAppMessageResponse represents a single WhatsApp message response
+type WhatsAppMessageResponse struct {
+	RefNo string `json:"refno"`
+	UUID  string `json:"uuid"`
+}
+
+// CreateWhatsAppMessageResponse creates a new WhatsAppMessageResponse
+func CreateWhatsAppMessageResponse(refNo string, uuid string) WhatsAppMessageResponse {
+	return WhatsAppMessageResponse{
+		RefNo: refNo,
+		UUID:  uuid,
+	}
+}
+
 // WhatsAppAPI handles WhatsApp business logic
 type WhatsAppAPI struct {
 	DB              *gorm.DB
@@ -44,13 +151,13 @@ func NewWhatsAppAPI(db *gorm.DB, readerDB *gorm.DB, pulsarClient *queue.PulsarCl
 }
 
 // ProcessMessageBatch processes a batch of WhatsApp messages
-func (a *WhatsAppAPI) ProcessMessageBatch(request models.WhatsAppRequest) ([]models.WhatsAppMessageResponse, error) {
+func (a *WhatsAppAPI) ProcessMessageBatch(request WhatsAppRequest) ([]WhatsAppMessageResponse, error) {
 	batchLogger := helper.Log.WithFields(map[string]interface{}{
 		"batchSize": len(request.Messages),
 	})
 
 	batchLogger.Info("Starting to process WhatsApp message batch")
-	responses := []models.WhatsAppMessageResponse{}
+	responses := []WhatsAppMessageResponse{}
 
 	for idx, message := range request.Messages {
 		messageLogger := batchLogger.WithFields(map[string]interface{}{
@@ -78,17 +185,17 @@ func (a *WhatsAppAPI) ProcessMessageBatch(request models.WhatsAppRequest) ([]mod
 		messageLogger.Info("Processing WhatsApp message")
 
 		// Create a message response
-		messageResponse := models.WhatsAppMessageResponse{
-			RefNo: message.RefNo,
-			UUID:  messageUUID,
-		}
+		messageResponse := CreateWhatsAppMessageResponse(message.RefNo, messageUUID)
 
 		// Add to responses
 		responses = append(responses, messageResponse)
 
+		// Convert to model message
+		modelMessage := message.ToModelWhatsAppMessage()
+
 		// Send to queue
 		messageLogger.Debug("Sending WhatsApp message to queue")
-		if err := a.MessageProducer.ProduceWhatsAppMessage(&message, messageUUID); err != nil {
+		if err := a.MessageProducer.ProduceWhatsAppMessage(modelMessage, messageUUID); err != nil {
 			messageLogger.WithError(err).Error("Failed to produce WhatsApp message to queue")
 			return nil, errors.New("failed to process message: " + err.Error())
 		}
@@ -96,7 +203,5 @@ func (a *WhatsAppAPI) ProcessMessageBatch(request models.WhatsAppRequest) ([]mod
 	}
 
 	batchLogger.WithField("responseCount", len(responses)).Info("Successfully processed WhatsApp message batch")
-	return responses, nil
-
 	return responses, nil
 }

@@ -10,6 +10,7 @@ type Template struct {
 	UUID        string    `gorm:"type:varchar(36);uniqueIndex;not null"`
 	Code        string    `gorm:"type:varchar(50);not null;index"` // Non-editable unique code for the template
 	Name        string    `gorm:"type:varchar(255);not null;index"`
+	Subject     string    `gorm:"type:varchar(255)"` // Subject line for EMAIL templates
 	Content     string    `gorm:"type:text;not null"`
 	Status      int       `gorm:"type:smallint;default:0;not null;index"` // 0 for inactive, 1 for active
 	Channel     Channel   `gorm:"type:varchar(10);not null;index;check:channel IN ('WHATSAPP', 'SMS', 'EMAIL')"`

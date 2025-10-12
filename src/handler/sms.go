@@ -3,7 +3,6 @@ package handler
 import (
 	"delivery/api"
 	"delivery/helper"
-	"delivery/models"
 	"delivery/services/queue"
 	"net/http"
 
@@ -50,7 +49,7 @@ func RegisterSMSRoutes(r *mux.Router, db *gorm.DB, readerDB *gorm.DB, pulsarClie
 
 // HandleSMSRequest handles the SMS request
 func (h *SMSHandler) HandleSMSRequest(w http.ResponseWriter, r *http.Request) {
-	var request models.SMSRequest
+	var request api.SMSRequest
 
 	if err := helper.ValidateRequestBody(r, &request); err != nil {
 		helper.RespondWithError(w, http.StatusBadRequest, helper.CodeBadRequest, helper.MsgInvalidRequestBody)
@@ -65,7 +64,7 @@ func (h *SMSHandler) HandleSMSRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Wrap responses in a "messages" object
-	responseWrapper := models.SMSResponse{
+	responseWrapper := api.SMSResponse{
 		Messages: responses,
 	}
 

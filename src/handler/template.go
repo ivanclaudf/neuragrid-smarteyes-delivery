@@ -3,7 +3,6 @@ package handler
 import (
 	"delivery/api"
 	"delivery/helper"
-	"delivery/models"
 	"net/http"
 	"strconv"
 
@@ -47,7 +46,7 @@ func RegisterTemplateRoutes(r *mux.Router, db *gorm.DB, readerDB *gorm.DB) {
 
 // CreateTemplates handles the creation of new templates
 func (h *TemplateHandler) CreateTemplates(w http.ResponseWriter, r *http.Request) {
-	var request models.TemplateRequest
+	var request api.TemplateRequest
 	if err := helper.ValidateRequestBody(r, &request); err != nil {
 		helper.Log.WithFields(logrus.Fields{
 			"handler": "CreateTemplates",
@@ -93,7 +92,7 @@ func (h *TemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var request models.TemplateRequest
+	var request api.TemplateRequest
 	if err := helper.ValidateRequestBody(r, &request); err != nil {
 		helper.Log.WithFields(logrus.Fields{
 			"handler": "UpdateTemplate",
@@ -187,7 +186,7 @@ func (h *TemplateHandler) ListTemplates(w http.ResponseWriter, r *http.Request) 
 	// Parse query parameters
 	query := r.URL.Query()
 
-	var params models.TemplateListParams
+	var params api.TemplateListParams
 
 	// Parse limit
 	limitStr := query.Get("limit")

@@ -78,3 +78,8 @@ func DecodeBase64AndDecrypt(encoded string, key []byte) ([]byte, error) {
 	}
 	return DecryptAES256(decoded, key)
 }
+
+// Base64Encode encodes a byte array to base64 string
+func Base64Encode(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
+}

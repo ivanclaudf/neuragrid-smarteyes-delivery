@@ -54,6 +54,7 @@ The `template` table stores message templates.
 | uuid        | varchar(36)  | Unique identifier                             |
 | code        | varchar(50)  | Non-editable unique template code             |
 | name        | varchar(255) | Template name                                 |
+| subject     | varchar(255) | Subject line for EMAIL templates              |
 | content     | text         | Template content with placeholders            |
 | status      | smallint     | Template status (0=inactive, 1=active)        |
 | channel     | varchar(10)  | Message channel (WHATSAPP, SMS, EMAIL)        |

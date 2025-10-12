@@ -1,5 +1,9 @@
 package services
 
+import (
+	"delivery/api/types"
+)
+
 // SMSService defines operations for sending SMS messages
 type SMSService interface {
 	// Send an SMS to a recipient
@@ -14,5 +18,5 @@ type SMSService interface {
 	SendTemplate(to string, templateName string, params map[string]string) error
 
 	// Get SMS delivery status by message ID
-	GetStatus(messageID string) (DeliveryStatus, error)
+	GetStatus(messageID string) (types.DeliveryStatus, error)
 }
