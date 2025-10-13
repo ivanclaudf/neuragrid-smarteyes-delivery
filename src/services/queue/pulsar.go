@@ -2,8 +2,10 @@ package queue
 
 import (
 	"context"
+	"delivery/models"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -194,4 +196,383 @@ func (cm *ConsumerManager) Close() {
 	if cm.pulsarClient != nil {
 		cm.pulsarClient.Close()
 	}
+}
+
+// DirectPushMessage is a generic interface for all message types that can be pushed directly to Pulsar
+type DirectPushMessage interface {
+	GetUUID() string
+	GetChannel() models.Channel
+	GetRefNo() string
+	GetIdentifiers() map[string]interface{}
+	GetCategories() []string
+	Validate() error
+}
+
+// DirectPushEmailMessage represents an email message that can be pushed directly to Pulsar
+type DirectPushEmailMessage struct {
+	UUID       string              `json:"uuid"`
+	Message    models.EmailMessage `json:"message"`
+	DB         *gorm.DB            `json:"-"`
+	PulsarConn *PulsarClient       `json:"-"`
+}
+
+// DirectPushSMSMessage represents an SMS message that can be pushed directly to Pulsar
+type DirectPushSMSMessage struct {
+	UUID       string            `json:"uuid"`
+	Message    models.SMSMessage `json:"message"`
+	DB         *gorm.DB          `json:"-"`
+	PulsarConn *PulsarClient     `json:"-"`
+}
+
+// DirectPushWhatsAppMessage represents a WhatsApp message that can be pushed directly to Pulsar
+type DirectPushWhatsAppMessage struct {
+	UUID       string                 `json:"uuid"`
+	Message    models.WhatsAppMessage `json:"message"`
+	DB         *gorm.DB               `json:"-"`
+	PulsarConn *PulsarClient          `json:"-"`
+}
+
+// GetUUID returns the UUID of the email message
+func (m *DirectPushEmailMessage) GetUUID() string {
+	return m.UUID
+}
+
+// GetChannel returns the channel type of the email message
+func (m *DirectPushEmailMessage) GetChannel() models.Channel {
+	return models.ChannelEmail
+}
+
+// GetRefNo returns the reference number of the email message
+func (m *DirectPushEmailMessage) GetRefNo() string {
+	return m.Message.RefNo
+}
+
+// GetIdentifiers returns the identifiers of the email message
+func (m *DirectPushEmailMessage) GetIdentifiers() map[string]interface{} {
+	return map[string]interface{}{
+		"tenant":     m.Message.Identifiers.Tenant,
+		"eventUuid":  m.Message.Identifiers.EventUUID,
+		"actionUuid": m.Message.Identifiers.ActionUUID,
+		"actionCode": m.Message.Identifiers.ActionCode,
+	}
+}
+
+// GetCategories returns the categories of the email message
+func (m *DirectPushEmailMessage) GetCategories() []string {
+	return m.Message.Categories
+}
+
+// Validate validates the email message
+func (m *DirectPushEmailMessage) Validate() error {
+	if m.Message.Template == "" {
+		return errors.New("template is required")
+	}
+	if len(m.Message.To) == 0 {
+		return errors.New("at least one recipient is required")
+	}
+	if m.Message.Provider == "" {
+		return errors.New("provider is required")
+	}
+	if m.Message.RefNo == "" {
+		return errors.New("refNo is required")
+	}
+	if len(m.Message.Categories) == 0 {
+		return errors.New("at least one category is required")
+	}
+	if m.Message.Identifiers.Tenant == "" {
+		return errors.New("tenant identifier is required")
+	}
+	return nil
+}
+
+// Push pushes the email message to Pulsar and records it in the database
+func (m *DirectPushEmailMessage) Push() error {
+	if err := m.Validate(); err != nil {
+		return err
+	}
+
+	// Create identifiers JSON for the database
+	identifiersJSON := models.JSON{
+		"tenant":     m.Message.Identifiers.Tenant,
+		"eventUuid":  m.Message.Identifiers.EventUUID,
+		"actionUuid": m.Message.Identifiers.ActionUUID,
+		"actionCode": m.Message.Identifiers.ActionCode,
+	}
+
+	// Convert categories array to JSON
+	categoriesJSON := models.JSON{}
+	for i, category := range m.Message.Categories {
+		categoriesJSON[fmt.Sprintf("%d", i)] = category
+	}
+
+	// Create a message record in the database
+	dbMessage := models.Message{
+		UUID:        m.UUID,
+		Channel:     models.ChannelEmail,
+		Status:      models.StatusAccepted,
+		Identifiers: identifiersJSON,
+		RefNo:       m.Message.RefNo,
+		Categories:  categoriesJSON,
+	}
+
+	// Save to database
+	if err := m.DB.Create(&dbMessage).Error; err != nil {
+		return err
+	}
+
+	// Create queue message
+	queueMessage := EmailMessage{
+		UUID:    m.UUID,
+		Message: m.Message,
+	}
+
+	// Produce the message to the queue
+	return m.PulsarConn.ProduceMessage(EmailTopic, queueMessage)
+}
+
+// GetUUID returns the UUID of the SMS message
+func (m *DirectPushSMSMessage) GetUUID() string {
+	return m.UUID
+}
+
+// GetChannel returns the channel type of the SMS message
+func (m *DirectPushSMSMessage) GetChannel() models.Channel {
+	return models.ChannelSMS
+}
+
+// GetRefNo returns the reference number of the SMS message
+func (m *DirectPushSMSMessage) GetRefNo() string {
+	return m.Message.RefNo
+}
+
+// GetIdentifiers returns the identifiers of the SMS message
+func (m *DirectPushSMSMessage) GetIdentifiers() map[string]interface{} {
+	return map[string]interface{}{
+		"tenant":     m.Message.Identifiers.Tenant,
+		"eventUuid":  m.Message.Identifiers.EventUUID,
+		"actionUuid": m.Message.Identifiers.ActionUUID,
+		"actionCode": m.Message.Identifiers.ActionCode,
+	}
+}
+
+// GetCategories returns the categories of the SMS message
+func (m *DirectPushSMSMessage) GetCategories() []string {
+	return m.Message.Categories
+}
+
+// Validate validates the SMS message
+func (m *DirectPushSMSMessage) Validate() error {
+	if m.Message.Template == "" {
+		return errors.New("template is required")
+	}
+	if len(m.Message.To) == 0 {
+		return errors.New("at least one recipient is required")
+	}
+	if m.Message.From == "" {
+		return errors.New("from is required")
+	}
+	if m.Message.Provider == "" {
+		return errors.New("provider is required")
+	}
+	if m.Message.RefNo == "" {
+		return errors.New("refNo is required")
+	}
+	if len(m.Message.Categories) == 0 {
+		return errors.New("at least one category is required")
+	}
+	if m.Message.Identifiers.Tenant == "" {
+		return errors.New("tenant identifier is required")
+	}
+	return nil
+}
+
+// Push pushes the SMS message to Pulsar and records it in the database
+func (m *DirectPushSMSMessage) Push() error {
+	if err := m.Validate(); err != nil {
+		return err
+	}
+
+	// Create identifiers JSON for the database
+	identifiersJSON := models.JSON{
+		"tenant":     m.Message.Identifiers.Tenant,
+		"eventUuid":  m.Message.Identifiers.EventUUID,
+		"actionUuid": m.Message.Identifiers.ActionUUID,
+		"actionCode": m.Message.Identifiers.ActionCode,
+	}
+
+	// Convert categories array to JSON
+	categoriesJSON := models.JSON{}
+	for i, category := range m.Message.Categories {
+		categoriesJSON[fmt.Sprintf("%d", i)] = category
+	}
+
+	// Create a message record in the database
+	dbMessage := models.Message{
+		UUID:        m.UUID,
+		Channel:     models.ChannelSMS,
+		Status:      models.StatusAccepted,
+		Identifiers: identifiersJSON,
+		RefNo:       m.Message.RefNo,
+		Categories:  categoriesJSON,
+	}
+
+	// Save to database
+	if err := m.DB.Create(&dbMessage).Error; err != nil {
+		return err
+	}
+
+	// Create queue message
+	queueMessage := SMSMessage{
+		UUID:    m.UUID,
+		Message: m.Message,
+	}
+
+	// Produce the message to the queue
+	return m.PulsarConn.ProduceMessage(SMSTopic, queueMessage)
+}
+
+// GetUUID returns the UUID of the WhatsApp message
+func (m *DirectPushWhatsAppMessage) GetUUID() string {
+	return m.UUID
+}
+
+// GetChannel returns the channel type of the WhatsApp message
+func (m *DirectPushWhatsAppMessage) GetChannel() models.Channel {
+	return models.ChannelWhatsApp
+}
+
+// GetRefNo returns the reference number of the WhatsApp message
+func (m *DirectPushWhatsAppMessage) GetRefNo() string {
+	return m.Message.RefNo
+}
+
+// GetIdentifiers returns the identifiers of the WhatsApp message
+func (m *DirectPushWhatsAppMessage) GetIdentifiers() map[string]interface{} {
+	return map[string]interface{}{
+		"tenant":     m.Message.Identifiers.Tenant,
+		"eventUuid":  m.Message.Identifiers.EventUUID,
+		"actionUuid": m.Message.Identifiers.ActionUUID,
+		"actionCode": m.Message.Identifiers.ActionCode,
+	}
+}
+
+// GetCategories returns the categories of the WhatsApp message
+func (m *DirectPushWhatsAppMessage) GetCategories() []string {
+	return m.Message.Categories
+}
+
+// Validate validates the WhatsApp message
+func (m *DirectPushWhatsAppMessage) Validate() error {
+	if m.Message.Template == "" {
+		return errors.New("template is required")
+	}
+	if len(m.Message.To) == 0 {
+		return errors.New("at least one recipient is required")
+	}
+	if m.Message.Provider == "" {
+		return errors.New("provider is required")
+	}
+	if m.Message.RefNo == "" {
+		return errors.New("refNo is required")
+	}
+	if len(m.Message.Categories) == 0 {
+		return errors.New("at least one category is required")
+	}
+	if m.Message.Identifiers.Tenant == "" {
+		return errors.New("tenant identifier is required")
+	}
+	return nil
+}
+
+// Push pushes the WhatsApp message to Pulsar and records it in the database
+func (m *DirectPushWhatsAppMessage) Push() error {
+	if err := m.Validate(); err != nil {
+		return err
+	}
+
+	// Create identifiers JSON for the database
+	identifiersJSON := models.JSON{
+		"tenant":     m.Message.Identifiers.Tenant,
+		"eventUuid":  m.Message.Identifiers.EventUUID,
+		"actionUuid": m.Message.Identifiers.ActionUUID,
+		"actionCode": m.Message.Identifiers.ActionCode,
+	}
+
+	// Convert categories array to JSON
+	categoriesJSON := models.JSON{}
+	for i, category := range m.Message.Categories {
+		categoriesJSON[fmt.Sprintf("%d", i)] = category
+	}
+
+	// Create a message record in the database
+	dbMessage := models.Message{
+		UUID:        m.UUID,
+		Channel:     models.ChannelWhatsApp,
+		Status:      models.StatusAccepted,
+		Identifiers: identifiersJSON,
+		RefNo:       m.Message.RefNo,
+		Categories:  categoriesJSON,
+	}
+
+	// Save to database
+	if err := m.DB.Create(&dbMessage).Error; err != nil {
+		return err
+	}
+
+	// Create queue message
+	queueMessage := WhatsAppMessage{
+		UUID:    m.UUID,
+		Message: m.Message,
+	}
+
+	// Produce the message to the queue
+	return m.PulsarConn.ProduceMessage(WhatsAppTopic, queueMessage)
+}
+
+// NewDirectPushEmailMessage creates a new direct push email message
+func NewDirectPushEmailMessage(db *gorm.DB, pulsarClient *PulsarClient, message *models.EmailMessage) (*DirectPushEmailMessage, error) {
+	// Generate a UUID
+	uuid, err := helper.GenerateUUID()
+	if err != nil {
+		return nil, err
+	}
+
+	return &DirectPushEmailMessage{
+		UUID:       uuid,
+		Message:    *message,
+		DB:         db,
+		PulsarConn: pulsarClient,
+	}, nil
+}
+
+// NewDirectPushSMSMessage creates a new direct push SMS message
+func NewDirectPushSMSMessage(db *gorm.DB, pulsarClient *PulsarClient, message *models.SMSMessage) (*DirectPushSMSMessage, error) {
+	// Generate a UUID
+	uuid, err := helper.GenerateUUID()
+	if err != nil {
+		return nil, err
+	}
+
+	return &DirectPushSMSMessage{
+		UUID:       uuid,
+		Message:    *message,
+		DB:         db,
+		PulsarConn: pulsarClient,
+	}, nil
+}
+
+// NewDirectPushWhatsAppMessage creates a new direct push WhatsApp message
+func NewDirectPushWhatsAppMessage(db *gorm.DB, pulsarClient *PulsarClient, message *models.WhatsAppMessage) (*DirectPushWhatsAppMessage, error) {
+	// Generate a UUID
+	uuid, err := helper.GenerateUUID()
+	if err != nil {
+		return nil, err
+	}
+
+	return &DirectPushWhatsAppMessage{
+		UUID:       uuid,
+		Message:    *message,
+		DB:         db,
+		PulsarConn: pulsarClient,
+	}, nil
 }

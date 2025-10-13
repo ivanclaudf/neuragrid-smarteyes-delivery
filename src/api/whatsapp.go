@@ -205,3 +205,39 @@ func (a *WhatsAppAPI) ProcessMessageBatch(request WhatsAppRequest) ([]WhatsAppMe
 	batchLogger.WithField("responseCount", len(responses)).Info("Successfully processed WhatsApp message batch")
 	return responses, nil
 }
+
+// DirectPushWhatsAppMessage pushes a WhatsApp message directly to Pulsar queue
+func (a *WhatsAppAPI) DirectPushWhatsAppMessage(modelMessage *models.WhatsAppMessage) (string, error) {
+	logger := helper.Log.WithFields(map[string]interface{}{
+		"template": modelMessage.Template,
+		"provider": modelMessage.Provider,
+		"refNo":    modelMessage.RefNo,
+		"tenant":   modelMessage.Identifiers.Tenant,
+	})
+
+	logger.Info("Creating direct push WhatsApp message")
+
+	// Create a direct push message
+	directPushMessage, err := queue.NewDirectPushWhatsAppMessage(
+		a.DB,
+		a.MessageProducer.PulsarClient,
+		modelMessage,
+	)
+	if err != nil {
+		logger.WithError(err).Error("Failed to create direct push WhatsApp message")
+		return "", err
+	}
+
+	// Log with UUID
+	logger = logger.WithField("uuid", directPushMessage.UUID)
+
+	// Push the message directly to Pulsar
+	logger.Debug("Pushing WhatsApp message directly to queue")
+	if err := directPushMessage.Push(); err != nil {
+		logger.WithError(err).Error("Failed to push WhatsApp message directly to queue")
+		return "", err
+	}
+
+	logger.Info("Successfully pushed WhatsApp message directly to queue")
+	return directPushMessage.UUID, nil
+}

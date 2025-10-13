@@ -9,7 +9,7 @@ import (
 
 // WhatsAppProducer handles producing WhatsApp messages to the queue
 type WhatsAppProducer struct {
-	pulsarClient *PulsarClient
+	PulsarClient *PulsarClient
 	db           *gorm.DB
 }
 
@@ -22,7 +22,7 @@ type WhatsAppMessage struct {
 // NewWhatsAppProducer creates a new WhatsApp producer
 func NewWhatsAppProducer(pulsarClient *PulsarClient, db *gorm.DB) *WhatsAppProducer {
 	return &WhatsAppProducer{
-		pulsarClient: pulsarClient,
+		PulsarClient: pulsarClient,
 		db:           db,
 	}
 }
@@ -63,5 +63,5 @@ func (p *WhatsAppProducer) ProduceWhatsAppMessage(message *models.WhatsAppMessag
 	}
 
 	// Produce the message to the queue
-	return p.pulsarClient.ProduceMessage(WhatsAppTopic, queueMessage)
+	return p.PulsarClient.ProduceMessage(WhatsAppTopic, queueMessage)
 }

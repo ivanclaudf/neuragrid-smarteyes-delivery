@@ -29,14 +29,17 @@ const (
 const (
 	// StatusAccepted represents message is accepted but not yet processed
 	StatusAccepted Status = "ACCEPTED"
+
 	// StatusRejected represents message is rejected
 	StatusRejected Status = "REJECTED"
 
 	// The following statuses match MessageEventType in message_event.go
 	// StatusSent represents message is sent to provider - matches EventStatusSent
 	StatusSent Status = "SENT"
+
 	// StatusDelivered represents message is delivered to recipient - matches EventStatusDelivered
 	StatusDelivered Status = "DELIVERED"
+
 	// StatusOpened represents message is opened by recipient - matches EventStatusRead
 	StatusOpened Status = "READ"
 )

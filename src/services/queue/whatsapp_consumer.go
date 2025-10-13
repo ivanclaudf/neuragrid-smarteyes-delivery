@@ -114,14 +114,57 @@ func (c *WhatsAppConsumer) rejectMessage(message *models.Message, reason string)
 	return errors.New(reason)
 }
 
-// fetchMessageFromDB gets a message from the database by UUID
-func (c *WhatsAppConsumer) fetchMessageFromDB(messageUUID string) (*models.Message, error) {
+// fetchOrCreateMessageFromDB gets a message from the database by UUID or creates one if not found
+func (c *WhatsAppConsumer) fetchOrCreateMessageFromDB(messageUUID string, message models.WhatsAppMessage) (*models.Message, error) {
 	helper.Log.WithField("message_uuid", messageUUID).Debug("Fetching message from database")
 
 	var dbMessage models.Message
 	if err := c.db.Where("uuid = ?", messageUUID).First(&dbMessage).Error; err != nil {
-		helper.Log.WithError(err).WithField("message_uuid", messageUUID).Error("Failed to fetch message from database")
-		return nil, fmt.Errorf("failed to fetch message with UUID %s: %w", messageUUID, err)
+		helper.Log.WithError(err).WithField("message_uuid", messageUUID).Info("Message not found in database, will create new one")
+
+		// Create identifiers JSON for the database
+		identifiersJSON := models.JSON{
+			"tenant":     message.Identifiers.Tenant,
+			"eventUuid":  message.Identifiers.EventUUID,
+			"actionUuid": message.Identifiers.ActionUUID,
+			"actionCode": message.Identifiers.ActionCode,
+		}
+
+		// Convert categories array to JSON
+		categoriesJSON := models.JSON{}
+		for i, category := range message.Categories {
+			categoriesJSON[fmt.Sprintf("%d", i)] = category
+		}
+
+		// Create a new message with ACCEPTED status
+		newMessage := models.Message{
+			UUID:        messageUUID,
+			Channel:     models.ChannelWhatsApp,
+			Status:      models.StatusAccepted,
+			RefNo:       message.RefNo,
+			Identifiers: identifiersJSON,
+			Categories:  categoriesJSON,
+		}
+
+		if err := c.db.Create(&newMessage).Error; err != nil {
+			helper.Log.WithError(err).WithField("message_uuid", messageUUID).Error("Failed to create new message")
+			return nil, fmt.Errorf("failed to create new message with UUID %s: %w", messageUUID, err)
+		}
+
+		// Create an ACCEPTED event in message_events table
+		event := models.MessageEvent{
+			MessageID: messageUUID,
+			Status:    models.EventStatusAccepted,
+			Timestamp: time.Now().UTC(),
+			Reason:    "Message created during processing due to missing record",
+		}
+
+		if err := c.db.Create(&event).Error; err != nil {
+			helper.Log.WithError(err).WithField("message_uuid", messageUUID).Error("Failed to create acceptance event")
+		}
+
+		helper.Log.WithField("message_uuid", messageUUID).Info("Created new message with ACCEPTED status")
+		return &newMessage, nil
 	}
 
 	helper.Log.WithFields(map[string]interface{}{
@@ -370,7 +413,7 @@ func (c *WhatsAppConsumer) handleMessage(data []byte) error {
 	}).Info("Processing WhatsApp message")
 
 	// Get the message from the database
-	dbMessage, err := c.fetchMessageFromDB(messageUUID)
+	dbMessage, err := c.fetchOrCreateMessageFromDB(messageUUID, message)
 	if err != nil {
 		return err
 	}

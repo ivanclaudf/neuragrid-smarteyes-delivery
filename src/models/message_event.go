@@ -13,10 +13,10 @@ type MessageEventType string
 const (
 	// EventStatusDelivered indicates the message was delivered to the recipient
 	EventStatusDelivered MessageEventType = "DELIVERED"
-	// EventStatusFailed indicates the message failed to be delivered
-	EventStatusFailed MessageEventType = "FAILED"
+
 	// EventStatusRead indicates the message was read by the recipient
 	EventStatusRead MessageEventType = "READ"
+
 	// EventStatusSent indicates the message was sent by the provider
 	EventStatusSent MessageEventType = "SENT"
 

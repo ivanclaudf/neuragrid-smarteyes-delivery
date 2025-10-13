@@ -10,7 +10,7 @@ import (
 
 // EmailProducer handles producing email messages to the queue
 type EmailProducer struct {
-	pulsarClient *PulsarClient
+	PulsarClient *PulsarClient
 	db           *gorm.DB
 }
 
@@ -23,7 +23,7 @@ type EmailMessage struct {
 // NewEmailProducer creates a new email producer
 func NewEmailProducer(pulsarClient *PulsarClient, db *gorm.DB) *EmailProducer {
 	producer := &EmailProducer{
-		pulsarClient: pulsarClient,
+		PulsarClient: pulsarClient,
 		db:           db,
 	}
 
@@ -69,5 +69,5 @@ func (p *EmailProducer) ProduceEmailMessage(message *models.EmailMessage, uuid s
 	}
 
 	// Produce the message to the queue
-	return p.pulsarClient.ProduceMessage(EmailTopic, queueMessage)
+	return p.PulsarClient.ProduceMessage(EmailTopic, queueMessage)
 }

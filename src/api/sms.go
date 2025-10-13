@@ -176,3 +176,39 @@ func (a *SMSAPI) ProcessMessageBatch(request SMSRequest) ([]SMSMessageResponse, 
 	batchLogger.WithField("responseCount", len(responses)).Info("Successfully processed SMS message batch")
 	return responses, nil
 }
+
+// DirectPushSMSMessage pushes an SMS message directly to Pulsar queue
+func (a *SMSAPI) DirectPushSMSMessage(modelMessage *models.SMSMessage) (string, error) {
+	logger := helper.Log.WithFields(map[string]interface{}{
+		"provider": modelMessage.Provider,
+		"refNo":    modelMessage.RefNo,
+		"tenant":   modelMessage.Identifiers.Tenant,
+		"from":     modelMessage.From,
+	})
+
+	logger.Info("Creating direct push SMS message")
+
+	// Create a direct push message
+	directPushMessage, err := queue.NewDirectPushSMSMessage(
+		a.DB,
+		a.SMSProducer.PulsarClient,
+		modelMessage,
+	)
+	if err != nil {
+		logger.WithError(err).Error("Failed to create direct push SMS message")
+		return "", err
+	}
+
+	// Log with UUID
+	logger = logger.WithField("uuid", directPushMessage.UUID)
+
+	// Push the message directly to Pulsar
+	logger.Debug("Pushing SMS message directly to queue")
+	if err := directPushMessage.Push(); err != nil {
+		logger.WithError(err).Error("Failed to push SMS message directly to queue")
+		return "", err
+	}
+
+	logger.Info("Successfully pushed SMS message directly to queue")
+	return directPushMessage.UUID, nil
+}

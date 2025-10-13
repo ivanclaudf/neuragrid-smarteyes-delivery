@@ -197,3 +197,40 @@ func (a *EmailAPI) ProcessMessageBatch(request EmailRequest) ([]EmailMessageResp
 	batchLogger.WithField("responseCount", len(responses)).Info("Successfully processed Email message batch")
 	return responses, nil
 }
+
+// DirectPushEmailMessage pushes an email message directly to Pulsar queue
+func (a *EmailAPI) DirectPushEmailMessage(modelMessage *models.EmailMessage) (string, error) {
+	logger := helper.Log.WithFields(map[string]interface{}{
+		"template":   modelMessage.Template,
+		"provider":   modelMessage.Provider,
+		"refNo":      modelMessage.RefNo,
+		"tenant":     modelMessage.Identifiers.Tenant,
+		"recipients": len(modelMessage.To),
+	})
+
+	logger.Info("Creating direct push email message")
+
+	// Create a direct push message
+	directPushMessage, err := queue.NewDirectPushEmailMessage(
+		a.DB,
+		a.MessageProducer.PulsarClient,
+		modelMessage,
+	)
+	if err != nil {
+		logger.WithError(err).Error("Failed to create direct push email message")
+		return "", err
+	}
+
+	// Log with UUID
+	logger = logger.WithField("uuid", directPushMessage.UUID)
+
+	// Push the message directly to Pulsar
+	logger.Debug("Pushing email message directly to queue")
+	if err := directPushMessage.Push(); err != nil {
+		logger.WithError(err).Error("Failed to push email message directly to queue")
+		return "", err
+	}
+
+	logger.Info("Successfully pushed email message directly to queue")
+	return directPushMessage.UUID, nil
+}

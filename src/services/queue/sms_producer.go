@@ -10,7 +10,7 @@ import (
 
 // SMSProducer handles producing SMS messages to the queue
 type SMSProducer struct {
-	pulsarClient *PulsarClient
+	PulsarClient *PulsarClient
 	db           *gorm.DB
 }
 
@@ -23,7 +23,7 @@ type SMSMessage struct {
 // NewSMSProducer creates a new SMS producer
 func NewSMSProducer(pulsarClient *PulsarClient, db *gorm.DB) *SMSProducer {
 	producer := &SMSProducer{
-		pulsarClient: pulsarClient,
+		PulsarClient: pulsarClient,
 		db:           db,
 	}
 
@@ -69,5 +69,5 @@ func (p *SMSProducer) ProduceSMSMessage(message *models.SMSMessage, uuid string)
 	}
 
 	// Produce the message to the queue
-	return p.pulsarClient.ProduceMessage(SMSTopic, queueMessage)
+	return p.PulsarClient.ProduceMessage(SMSTopic, queueMessage)
 }

@@ -56,12 +56,16 @@ func (c *EmailConsumer) handleMessage(data []byte) error {
 
 	logger.Info("Processing Email message from queue")
 
-	// Update the message status to SENT when it begins processing
-	if err := c.updateMessageStatus(message.UUID, models.StatusSent); err != nil {
-		logger.WithError(err).Error("Failed to update message status to SENT")
+	// Ensure the message exists in the database before processing
+	if err := c.ensureMessageExists(message); err != nil {
+		logger.WithError(err).Error("Failed to ensure message exists in database")
 		return err
 	}
 
+	// Update the message status to SENT when it begins processing
+	if err := c.updateMessageStatus(message.UUID, models.StatusSent); err != nil {
+		logger.WithError(err).Info("Failed to update message status to SENT - will continue processing")
+	}
 	// Fetch the template
 	var template models.Template
 	if err := c.db.Where("uuid = ? AND channel = ?", message.Message.Template, models.ChannelEmail).First(&template).Error; err != nil {
@@ -120,11 +124,66 @@ func (c *EmailConsumer) handleMessage(data []byte) error {
 	return nil
 }
 
+// ensureMessageExists checks if a message exists in the database and creates it if not
+func (c *EmailConsumer) ensureMessageExists(message EmailMessage) error {
+	// Check if the message exists in the database
+	var dbMessage models.Message
+	if err := c.db.Where("uuid = ?", message.UUID).First(&dbMessage).Error; err != nil {
+		// If not found, create it with proper identifiers and categories
+
+		// Create identifiers JSON for the database
+		identifiersJSON := models.JSON{
+			"tenant":     message.Message.Identifiers.Tenant,
+			"eventUuid":  message.Message.Identifiers.EventUUID,
+			"actionUuid": message.Message.Identifiers.ActionUUID,
+			"actionCode": message.Message.Identifiers.ActionCode,
+		}
+
+		// Convert categories array to JSON
+		categoriesJSON := models.JSON{}
+		for i, category := range message.Message.Categories {
+			categoriesJSON[fmt.Sprintf("%d", i)] = category
+		}
+
+		// Create a new message with ACCEPTED status
+		newMessage := models.Message{
+			UUID:        message.UUID,
+			Channel:     models.ChannelEmail,
+			Status:      models.StatusAccepted,
+			RefNo:       message.Message.RefNo,
+			Identifiers: identifiersJSON,
+			Categories:  categoriesJSON,
+		}
+
+		if err := c.db.Create(&newMessage).Error; err != nil {
+			helper.Log.WithError(err).WithField("message_uuid", message.UUID).Error("Failed to create new message")
+			return fmt.Errorf("failed to create new message with UUID %s: %w", message.UUID, err)
+		}
+
+		// Create an ACCEPTED event in message_events table
+		event := models.MessageEvent{
+			MessageID: message.UUID,
+			Status:    models.EventStatusAccepted,
+			Timestamp: time.Now().UTC(),
+			Reason:    "Message created during processing due to missing record",
+		}
+
+		if err := c.db.Create(&event).Error; err != nil {
+			helper.Log.WithError(err).WithField("message_uuid", message.UUID).Error("Failed to create acceptance event")
+		}
+
+		helper.Log.WithField("message_uuid", message.UUID).Info("Created new message with ACCEPTED status")
+	}
+
+	return nil
+}
+
 // updateMessageStatus updates the status of a message in the database
 func (c *EmailConsumer) updateMessageStatus(uuid string, status models.Status) error {
 	// Find the message by UUID
 	var message models.Message
 	if err := c.db.Where("uuid = ?", uuid).First(&message).Error; err != nil {
+		helper.Log.WithError(err).WithField("message_uuid", uuid).Info("Message not found when updating status")
 		return err
 	}
 

@@ -128,8 +128,8 @@ func (c *SMSConsumer) processSMSMessage(msg pulsar.Message) error {
 
 	messageLogger.Info("Processing SMS message")
 
-	// Get the message from the database
-	dbMessage, err := c.fetchMessageFromDB(messageUUID)
+	// Get the message from the database or create if not found
+	dbMessage, err := c.fetchOrCreateMessageFromDB(messageUUID, message)
 	if err != nil {
 		return err
 	}
@@ -238,8 +238,7 @@ func (c *SMSConsumer) processSMSMessage(msg pulsar.Message) error {
 	// Update message status to SENT
 	dbMessage.Status = models.StatusSent
 	if err := c.db.Save(dbMessage).Error; err != nil {
-		messageLogger.WithError(err).Error("Failed to update message status to SENT")
-		return err
+		messageLogger.WithError(err).Info("Failed to update message status to SENT - will continue processing")
 	}
 
 	// Update message timestamp
@@ -249,6 +248,67 @@ func (c *SMSConsumer) processSMSMessage(msg pulsar.Message) error {
 
 	messageLogger.Info("Successfully processed SMS message")
 	return nil
+}
+
+// fetchOrCreateMessageFromDB gets a message from the database by UUID or creates one if not found
+func (c *SMSConsumer) fetchOrCreateMessageFromDB(messageUUID string, message models.SMSMessage) (*models.Message, error) {
+	helper.Log.WithField("message_uuid", messageUUID).Debug("Fetching message from database")
+
+	var dbMessage models.Message
+	if err := c.db.Where("uuid = ?", messageUUID).First(&dbMessage).Error; err != nil {
+		helper.Log.WithField("message_uuid", messageUUID).Info("Message not found in database, will create new one")
+
+		// Create identifiers JSON for the database
+		identifiersJSON := models.JSON{
+			"tenant":     message.Identifiers.Tenant,
+			"eventUuid":  message.Identifiers.EventUUID,
+			"actionUuid": message.Identifiers.ActionUUID,
+			"actionCode": message.Identifiers.ActionCode,
+		}
+
+		// Convert categories array to JSON
+		categoriesJSON := models.JSON{}
+		for i, category := range message.Categories {
+			categoriesJSON[fmt.Sprintf("%d", i)] = category
+		}
+
+		// Create a new message with ACCEPTED status
+		newMessage := models.Message{
+			UUID:        messageUUID,
+			Channel:     models.ChannelSMS,
+			Status:      models.StatusAccepted,
+			RefNo:       message.RefNo,
+			Identifiers: identifiersJSON,
+			Categories:  categoriesJSON,
+		}
+
+		if err := c.db.Create(&newMessage).Error; err != nil {
+			helper.Log.WithError(err).WithField("message_uuid", messageUUID).Error("Failed to create new message")
+			return nil, fmt.Errorf("failed to create new message with UUID %s: %w", messageUUID, err)
+		}
+
+		// Create an ACCEPTED event in message_events table
+		event := models.MessageEvent{
+			MessageID: messageUUID,
+			Status:    models.EventStatusAccepted,
+			Timestamp: time.Now().UTC(),
+			Reason:    "Message created during processing due to missing record",
+		}
+
+		if err := c.db.Create(&event).Error; err != nil {
+			helper.Log.WithError(err).WithField("message_uuid", messageUUID).Error("Failed to create acceptance event")
+		}
+
+		helper.Log.WithField("message_uuid", messageUUID).Info("Created new message with ACCEPTED status")
+		return &newMessage, nil
+	}
+
+	helper.Log.WithFields(map[string]interface{}{
+		"message_uuid": messageUUID,
+		"status":       dbMessage.Status,
+	}).Debug("Message fetched from database")
+
+	return &dbMessage, nil
 }
 
 // fetchMessageFromDB gets a message from the database by UUID
