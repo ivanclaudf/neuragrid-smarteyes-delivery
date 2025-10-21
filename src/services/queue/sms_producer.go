@@ -33,13 +33,8 @@ func NewSMSProducer(pulsarClient *PulsarClient, db *gorm.DB) *SMSProducer {
 
 // ProduceSMSMessage sends an SMS message to the queue
 func (p *SMSProducer) ProduceSMSMessage(message *models.SMSMessage, uuid string) error {
-	// Create identifiers JSON for the database
-	identifiersJSON := models.JSON{
-		"tenant":     message.Identifiers.Tenant,
-		"eventUuid":  message.Identifiers.EventUUID,
-		"actionUuid": message.Identifiers.ActionUUID,
-		"actionCode": message.Identifiers.ActionCode,
-	}
+	// Save the Identifiers object as-is
+	identifiersJSON := message.Identifiers
 
 	// Convert categories array to JSON
 	categoriesJSON := models.JSON{}
@@ -55,6 +50,7 @@ func (p *SMSProducer) ProduceSMSMessage(message *models.SMSMessage, uuid string)
 		Identifiers: identifiersJSON,
 		RefNo:       message.RefNo,
 		Categories:  categoriesJSON,
+		TenantID:    message.TenantID,
 	}
 
 	// Save to database

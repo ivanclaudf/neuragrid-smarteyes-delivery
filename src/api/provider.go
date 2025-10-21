@@ -24,7 +24,7 @@ type ProviderRequestItem struct {
 	Config       models.JSON `json:"config" binding:"required"`
 	SecureConfig models.JSON `json:"secureConfig" binding:"required"`
 	Channel      string      `json:"channel" binding:"required"`
-	Tenant       string      `json:"tenant" binding:"required"`
+	TenantID     string      `json:"tenantId" binding:"required"`
 	Status       *int        `json:"status,omitempty"`
 }
 
@@ -41,7 +41,7 @@ type ProviderResponseItem struct {
 	Name      string      `json:"name"`
 	Config    models.JSON `json:"config"`
 	Channel   string      `json:"channel"`
-	Tenant    string      `json:"tenant"`
+	TenantID  string      `json:"tenantId"`
 	Status    int         `json:"status"`
 	CreatedAt string      `json:"createdAt"`
 	UpdatedAt string      `json:"updatedAt"`
@@ -49,10 +49,10 @@ type ProviderResponseItem struct {
 
 // ProviderListParams represents parameters for listing providers
 type ProviderListParams struct {
-	Limit   int    `json:"limit" form:"limit"`
-	Offset  int    `json:"offset" form:"offset"`
-	Channel string `json:"channel" form:"channel"`
-	Tenant  string `json:"tenant" form:"tenant"`
+	Limit    int    `json:"limit" form:"limit"`
+	Offset   int    `json:"offset" form:"offset"`
+	Channel  string `json:"channel" form:"channel"`
+	TenantID string `json:"tenantId" form:"tenantId"`
 }
 
 // ProviderAPI handles provider business logic
@@ -105,7 +105,7 @@ func (a *ProviderAPI) CreateProviders(request ProviderRequest) (*ProviderRespons
 			"provider": providerItem.Provider,
 			"name":     providerItem.Name,
 			"channel":  providerItem.Channel,
-			"tenant":   providerItem.Tenant,
+			"tenantId": providerItem.TenantID,
 		})
 
 		providerLogger.Debug("Processing provider item")
@@ -125,7 +125,7 @@ func (a *ProviderAPI) CreateProviders(request ProviderRequest) (*ProviderRespons
 			Config:       providerItem.Config,
 			SecureConfig: encryptedConfig,
 			Channel:      models.Channel(providerItem.Channel),
-			Tenant:       providerItem.Tenant,
+			TenantID:     providerItem.TenantID,
 		}
 
 		// Set status if provided (otherwise DB default will be used)
@@ -134,9 +134,25 @@ func (a *ProviderAPI) CreateProviders(request ProviderRequest) (*ProviderRespons
 		}
 
 		// Generate UUID for the provider
-		if err := provider.GenerateUUID(); err != nil {
-			providerLogger.WithError(err).Error("Failed to generate UUID")
-			return nil, fmt.Errorf("failed to generate UUID: %v", err)
+		if provider.UUID == "" {
+			uuid, err := helper.GenerateUUID()
+			if err != nil {
+				providerLogger.WithError(err).Error("Failed to generate UUID")
+				return nil, fmt.Errorf("failed to generate UUID: %v", err)
+			}
+			provider.UUID = uuid
+		}
+
+		// Check for duplicate (code, tenant_id, channel)
+		var count int64
+		err = a.DB.Model(&models.Provider{}).Where("code = ? AND tenant_id = ? AND channel = ?", provider.Code, provider.TenantID, provider.Channel).Count(&count).Error
+		if err != nil {
+			providerLogger.WithError(err).Error("Failed to check for duplicate provider")
+			return nil, fmt.Errorf("failed to check for duplicate provider: %v", err)
+		}
+		if count > 0 {
+			providerLogger.Error("Duplicate provider (code, tenant_id, channel) exists")
+			return nil, fmt.Errorf("%d:%s", helper.CodeDuplicate, helper.MsgDuplicate)
 		}
 
 		// Save provider to database
@@ -155,7 +171,7 @@ func (a *ProviderAPI) CreateProviders(request ProviderRequest) (*ProviderRespons
 			Name:      provider.Name,
 			Config:    provider.Config,
 			Channel:   string(provider.Channel),
-			Tenant:    provider.Tenant,
+			TenantID:  provider.TenantID,
 			Status:    provider.Status,
 			CreatedAt: provider.CreatedAt.Format(helper.TimeFormat),
 			UpdatedAt: provider.UpdatedAt.Format(helper.TimeFormat),
@@ -194,7 +210,7 @@ func (a *ProviderAPI) UpdateProvider(uuid string, request ProviderRequest) (*Pro
 		"provider": providerItem.Provider,
 		"name":     providerItem.Name,
 		"channel":  providerItem.Channel,
-		"tenant":   providerItem.Tenant,
+		"tenantId": providerItem.TenantID,
 	})
 
 	// Get existing provider
@@ -253,12 +269,36 @@ func (a *ProviderAPI) UpdateProvider(uuid string, request ProviderRequest) (*Pro
 		updates["channel"] = models.Channel(providerItem.Channel)
 	}
 
-	if providerItem.Tenant != "" {
-		updates["tenant"] = providerItem.Tenant
+	if providerItem.TenantID != "" {
+		updates["tenant_id"] = providerItem.TenantID
 	}
 
 	if providerItem.Status != nil {
 		updates["status"] = *providerItem.Status
+	}
+
+	// If channel or tenant_id is being updated, check for duplicate
+	newChannel := provider.Channel
+	if ch, ok := updates["channel"]; ok {
+		newChannel = ch.(models.Channel)
+	}
+	newTenantID := provider.TenantID
+	if tid, ok := updates["tenant_id"]; ok {
+		newTenantID = tid.(string)
+	}
+	if newChannel != provider.Channel || newTenantID != provider.TenantID {
+		var count int64
+		err := a.DB.Model(&models.Provider{}).
+			Where("code = ? AND tenant_id = ? AND channel = ? AND uuid != ?", provider.Code, newTenantID, newChannel, provider.UUID).
+			Count(&count).Error
+		if err != nil {
+			logger.WithError(err).Error("Failed to check for duplicate provider on update")
+			return nil, fmt.Errorf("failed to check for duplicate provider: %v", err)
+		}
+		if count > 0 {
+			logger.Error("Duplicate provider (code, tenant_id, channel) exists on update")
+			return nil, fmt.Errorf("%d:%s", helper.CodeDuplicate, helper.MsgDuplicate)
+		}
 	}
 
 	// Update provider in database (only if there are fields to update)
@@ -296,7 +336,7 @@ func (a *ProviderAPI) UpdateProvider(uuid string, request ProviderRequest) (*Pro
 				Name:      provider.Name,
 				Config:    provider.Config,
 				Channel:   string(provider.Channel),
-				Tenant:    provider.Tenant,
+				TenantID:  provider.TenantID,
 				Status:    provider.Status,
 				CreatedAt: provider.CreatedAt.Format(helper.TimeFormat),
 				UpdatedAt: provider.UpdatedAt.Format(helper.TimeFormat),
@@ -335,7 +375,7 @@ func (a *ProviderAPI) GetProvider(uuid string) (*ProviderResponse, error) {
 		"provider": provider.Provider,
 		"name":     provider.Name,
 		"channel":  provider.Channel,
-		"tenant":   provider.Tenant,
+		"tenantId": provider.TenantID,
 	}).Debug("Provider found")
 
 	// Create response
@@ -348,7 +388,7 @@ func (a *ProviderAPI) GetProvider(uuid string) (*ProviderResponse, error) {
 				Name:      provider.Name,
 				Config:    provider.Config,
 				Channel:   string(provider.Channel),
-				Tenant:    provider.Tenant,
+				TenantID:  provider.TenantID,
 				Status:    provider.Status,
 				CreatedAt: provider.CreatedAt.Format(helper.TimeFormat),
 				UpdatedAt: provider.UpdatedAt.Format(helper.TimeFormat),
@@ -368,7 +408,7 @@ func (a *ProviderAPI) ListProviders(limit int, offset int, channel string, tenan
 		"limit":     limit,
 		"offset":    offset,
 		"channel":   channel,
-		"tenant":    tenant,
+		"tenantId":  tenant,
 	})
 
 	logger.Info("Listing providers")
@@ -394,8 +434,8 @@ func (a *ProviderAPI) ListProviders(limit int, offset int, channel string, tenan
 	}
 
 	if tenant != "" {
-		query = query.Where("tenant = ?", tenant)
-		logger.WithField("tenant_filter", tenant).Debug("Applied tenant filter")
+		query = query.Where("tenant_id = ?", tenant)
+		logger.WithField("tenantId_filter", tenant).Debug("Applied tenantId filter")
 	}
 
 	// Count total records
@@ -426,7 +466,7 @@ func (a *ProviderAPI) ListProviders(limit int, offset int, channel string, tenan
 			Name:      provider.Name,
 			Config:    provider.Config,
 			Channel:   string(provider.Channel),
-			Tenant:    provider.Tenant,
+			TenantID:  provider.TenantID,
 			Status:    provider.Status,
 			CreatedAt: provider.CreatedAt.Format(helper.TimeFormat),
 			UpdatedAt: provider.UpdatedAt.Format(helper.TimeFormat),

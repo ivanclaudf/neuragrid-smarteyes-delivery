@@ -15,12 +15,12 @@ type Template struct {
 	Status      int       `gorm:"type:smallint;default:0;not null;index"` // 0 for inactive, 1 for active
 	Channel     Channel   `gorm:"type:varchar(10);not null;index;check:channel IN ('WHATSAPP', 'SMS', 'EMAIL')"`
 	TemplateIds JSON      `gorm:"type:jsonb;column:template_ids"` // JSON field to store provider template IDs
-	Tenant      string    `gorm:"type:varchar(255);not null;index"`
+	TenantID    string    `gorm:"column:tenant_id;type:varchar(255);not null;index"`
 	CreatedAt   time.Time `gorm:"autoCreateTime;not null;index"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime;not null"`
 
-	// Define unique constraint: tenant + code + channel must be unique
-	_ struct{} `gorm:"uniqueIndex:idx_tenant_code_channel;columns:tenant,code,channel"`
+	// Define unique constraint: tenant_id + code + channel must be unique
+	_ struct{} `gorm:"uniqueIndex:idx_code_tenant_channel;columns:code,tenant_id,channel"`
 }
 
 // TableName defines the table name for the Template model

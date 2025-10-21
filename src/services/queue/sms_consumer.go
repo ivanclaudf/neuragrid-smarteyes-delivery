@@ -122,7 +122,7 @@ func (c *SMSConsumer) processSMSMessage(msg pulsar.Message) error {
 		"refNo":        message.RefNo,
 		"provider":     message.Provider,
 		"template":     message.Template,
-		"tenant":       message.Identifiers.Tenant,
+		"tenantId":     message.TenantID,
 		"recipients":   len(message.To),
 	})
 
@@ -135,7 +135,7 @@ func (c *SMSConsumer) processSMSMessage(msg pulsar.Message) error {
 	}
 
 	// Check if template exists in our database
-	template, err := c.fetchTemplateFromDB(message.Template, message.Identifiers.Tenant)
+	template, err := c.fetchTemplateFromDB(message.Template, message.TenantID)
 	if err != nil {
 		return c.rejectMessage(dbMessage, fmt.Sprintf("template not found or inactive: %s", message.Template))
 	}
@@ -230,7 +230,7 @@ func (c *SMSConsumer) processSMSMessage(msg pulsar.Message) error {
 	}
 
 	// Create successful send event
-	eventErr := c.createSuccessEvent(dbMessage.UUID)
+	eventErr := c.createSuccessEvent(dbMessage.ID)
 	if eventErr != nil {
 		messageLogger.WithError(eventErr).Error("Failed to create success event")
 	}
@@ -258,13 +258,8 @@ func (c *SMSConsumer) fetchOrCreateMessageFromDB(messageUUID string, message mod
 	if err := c.db.Where("uuid = ?", messageUUID).First(&dbMessage).Error; err != nil {
 		helper.Log.WithField("message_uuid", messageUUID).Info("Message not found in database, will create new one")
 
-		// Create identifiers JSON for the database
-		identifiersJSON := models.JSON{
-			"tenant":     message.Identifiers.Tenant,
-			"eventUuid":  message.Identifiers.EventUUID,
-			"actionUuid": message.Identifiers.ActionUUID,
-			"actionCode": message.Identifiers.ActionCode,
-		}
+		// Save the Identifiers object as-is
+		identifiersJSON := message.Identifiers
 
 		// Convert categories array to JSON
 		categoriesJSON := models.JSON{}
@@ -272,31 +267,40 @@ func (c *SMSConsumer) fetchOrCreateMessageFromDB(messageUUID string, message mod
 			categoriesJSON[fmt.Sprintf("%d", i)] = category
 		}
 
-		// Create a new message with ACCEPTED status
+		// Generate UUID for new message if not provided
+		uuid := messageUUID
+		if uuid == "" {
+			var err error
+			uuid, err = helper.GenerateUUID()
+			if err != nil {
+				helper.Log.WithError(err).Error("Failed to generate UUID for new message")
+				return nil, fmt.Errorf("failed to generate UUID for new message: %w", err)
+			}
+		}
 		newMessage := models.Message{
-			UUID:        messageUUID,
+			UUID:        uuid,
 			Channel:     models.ChannelSMS,
 			Status:      models.StatusAccepted,
 			RefNo:       message.RefNo,
 			Identifiers: identifiersJSON,
 			Categories:  categoriesJSON,
+			TenantID:    message.TenantID,
 		}
 
 		if err := c.db.Create(&newMessage).Error; err != nil {
-			helper.Log.WithError(err).WithField("message_uuid", messageUUID).Error("Failed to create new message")
-			return nil, fmt.Errorf("failed to create new message with UUID %s: %w", messageUUID, err)
+			helper.Log.WithError(err).WithField("message_uuid", uuid).Error("Failed to create new message")
+			return nil, fmt.Errorf("failed to create new message with UUID %s: %w", uuid, err)
 		}
 
 		// Create an ACCEPTED event in message_events table
 		event := models.MessageEvent{
-			MessageID: messageUUID,
+			MessageID: newMessage.ID,
 			Status:    models.EventStatusAccepted,
 			Timestamp: time.Now().UTC(),
 			Reason:    "Message created during processing due to missing record",
 		}
-
-		if err := c.db.Create(&event).Error; err != nil {
-			helper.Log.WithError(err).WithField("message_uuid", messageUUID).Error("Failed to create acceptance event")
+		if err := helper.InsertMessageEvent(c.db, event); err != nil {
+			helper.Log.WithError(err).WithField("message_id", newMessage.ID).Error("Failed to create acceptance event")
 		}
 
 		helper.Log.WithField("message_uuid", messageUUID).Info("Created new message with ACCEPTED status")
@@ -330,22 +334,22 @@ func (c *SMSConsumer) fetchMessageFromDB(messageUUID string) (*models.Message, e
 }
 
 // fetchTemplateFromDB gets a template from the database by UUID and tenant
-func (c *SMSConsumer) fetchTemplateFromDB(templateUUID string, tenant string) (*models.Template, error) {
+func (c *SMSConsumer) fetchTemplateFromDB(templateUUID string, tenantID string) (*models.Template, error) {
 	helper.Log.WithFields(map[string]interface{}{
 		"template_uuid": templateUUID,
-		"tenant":        tenant,
+		"tenantId":      tenantID,
 	}).Debug("Fetching template from database")
 
 	var template models.Template
 	if err := c.readerDB.Where("uuid = ?", templateUUID).
-		Where("tenant = ?", tenant).
+		Where("tenant_id = ?", tenantID).
 		Where("channel = ?", models.ChannelSMS).
 		Where("status = ?", 1).
 		First(&template).Error; err != nil {
 
 		helper.Log.WithError(err).WithFields(map[string]interface{}{
 			"template_uuid": templateUUID,
-			"tenant":        tenant,
+			"tenantId":      tenantID,
 		}).Error("Template not found or inactive")
 
 		return nil, fmt.Errorf("template not found or inactive: %w", err)
@@ -361,50 +365,32 @@ func (c *SMSConsumer) fetchTemplateFromDB(templateUUID string, tenant string) (*
 }
 
 // createRejectionEvent creates a message event with rejection status and reason
-func (c *SMSConsumer) createRejectionEvent(messageID string, reason string) error {
-	uuid, err := helper.GenerateUUID()
-	if err != nil {
-		helper.Log.WithError(err).Error("Failed to generate UUID for rejection event")
-		return fmt.Errorf("failed to generate event UUID: %w", err)
-	}
-
+func (c *SMSConsumer) createRejectionEvent(messageID uint, reason string) error {
 	event := models.MessageEvent{
-		UUID:      uuid,
 		MessageID: messageID,
 		Status:    models.EventStatusRejected,
 		Reason:    reason,
 		Timestamp: time.Now(),
 	}
-
-	if err := c.db.Create(&event).Error; err != nil {
+	if err := helper.InsertMessageEvent(c.db, event); err != nil {
 		helper.Log.WithError(err).Error("Failed to create rejection event in database")
 		return fmt.Errorf("failed to create rejection event: %w", err)
 	}
-
 	return nil
 }
 
 // createSuccessEvent creates a message event with success status
-func (c *SMSConsumer) createSuccessEvent(messageID string) error {
-	uuid, err := helper.GenerateUUID()
-	if err != nil {
-		helper.Log.WithError(err).Error("Failed to generate UUID for success event")
-		return fmt.Errorf("failed to generate event UUID: %w", err)
-	}
-
+func (c *SMSConsumer) createSuccessEvent(messageID uint) error {
 	event := models.MessageEvent{
-		UUID:      uuid,
 		MessageID: messageID,
 		Status:    models.EventStatusSent,
 		Reason:    "Message sent successfully",
 		Timestamp: time.Now(),
 	}
-
-	if err := c.db.Create(&event).Error; err != nil {
+	if err := helper.InsertMessageEvent(c.db, event); err != nil {
 		helper.Log.WithError(err).Error("Failed to create success event in database")
 		return fmt.Errorf("failed to create success event: %w", err)
 	}
-
 	return nil
 }
 
@@ -423,7 +409,7 @@ func (c *SMSConsumer) rejectMessage(message *models.Message, reason string) erro
 	}
 
 	// Create rejection event
-	return c.createRejectionEvent(message.UUID, reason)
+	return c.createRejectionEvent(message.ID, reason)
 }
 
 // updateMessageTimestamp updates the message timestamp in the database

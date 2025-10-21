@@ -30,12 +30,7 @@ func NewWhatsAppProducer(pulsarClient *PulsarClient, db *gorm.DB) *WhatsAppProdu
 // ProduceWhatsAppMessage produces a WhatsApp message to the queue
 func (p *WhatsAppProducer) ProduceWhatsAppMessage(message *models.WhatsAppMessage, uuid string) error {
 	// Create a new message record in the database with ACCEPTED status
-	identifiersJSON := models.JSON{
-		"tenant":     message.Identifiers.Tenant,
-		"eventUuid":  message.Identifiers.EventUUID,
-		"actionUuid": message.Identifiers.ActionUUID,
-		"actionCode": message.Identifiers.ActionCode,
-	}
+	identifiersJSON := message.Identifiers
 
 	// Convert categories array to JSON
 	categoriesJSON := models.JSON{}
@@ -50,6 +45,7 @@ func (p *WhatsAppProducer) ProduceWhatsAppMessage(message *models.WhatsAppMessag
 		Categories:  categoriesJSON,
 		RefNo:       message.RefNo,
 		Status:      models.StatusAccepted,
+		TenantID:    message.TenantID,
 	}
 
 	if err := p.db.Create(&dbMessage).Error; err != nil {

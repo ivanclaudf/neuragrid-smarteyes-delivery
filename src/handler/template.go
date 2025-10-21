@@ -3,6 +3,7 @@ package handler
 import (
 	"delivery/api"
 	"delivery/helper"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -59,9 +60,19 @@ func (h *TemplateHandler) CreateTemplates(w http.ResponseWriter, r *http.Request
 	// Call API to create templates
 	response, err := h.api.CreateTemplates(request)
 	if err != nil {
+		errStr := err.Error()
+		if errStr == fmt.Sprintf("%d:%s", helper.CodeDuplicate, helper.MsgDuplicate) {
+			helper.Log.WithFields(logrus.Fields{
+				"handler": "CreateTemplates",
+				"error":   errStr,
+				"count":   len(request.Templates),
+			}).Warn("Duplicate template")
+			helper.RespondWithError(w, http.StatusConflict, helper.CodeDuplicate, helper.MsgDuplicate)
+			return
+		}
 		helper.Log.WithFields(logrus.Fields{
 			"handler": "CreateTemplates",
-			"error":   err.Error(),
+			"error":   errStr,
 			"count":   len(request.Templates),
 		}).Error("Failed to create templates")
 		helper.RespondWithError(w, http.StatusInternalServerError, helper.CodeServerError, helper.MsgServerError)
@@ -106,20 +117,29 @@ func (h *TemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request)
 	// Call API to update template
 	response, err := h.api.UpdateTemplate(uuid, request)
 	if err != nil {
-		if err.Error() == "template not found" {
+		errStr := err.Error()
+		if errStr == fmt.Sprintf("%d:%s", helper.CodeDuplicate, helper.MsgDuplicate) {
 			helper.Log.WithFields(logrus.Fields{
 				"handler": "UpdateTemplate",
 				"uuid":    uuid,
-				"error":   err.Error(),
+				"error":   errStr,
+			}).Warn("Duplicate template")
+			helper.RespondWithError(w, http.StatusConflict, helper.CodeDuplicate, helper.MsgDuplicate)
+			return
+		}
+		if errStr == "template not found" {
+			helper.Log.WithFields(logrus.Fields{
+				"handler": "UpdateTemplate",
+				"uuid":    uuid,
+				"error":   errStr,
 			}).Warn("Template not found")
 			helper.RespondWithError(w, http.StatusNotFound, helper.CodeNotFound, "Template not found")
 			return
 		}
-
 		helper.Log.WithFields(logrus.Fields{
 			"handler": "UpdateTemplate",
 			"uuid":    uuid,
-			"error":   err.Error(),
+			"error":   errStr,
 		}).Error("Failed to update template")
 		helper.RespondWithError(w, http.StatusInternalServerError, helper.CodeServerError, helper.MsgServerError)
 		return
@@ -222,7 +242,7 @@ func (h *TemplateHandler) ListTemplates(w http.ResponseWriter, r *http.Request) 
 
 	// Get other filters
 	params.Channel = query.Get("channel")
-	params.Tenant = query.Get("tenant")
+	params.TenantID = query.Get("tenantId")
 	params.Code = query.Get("code")
 
 	// Call API to list templates

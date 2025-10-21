@@ -62,13 +62,9 @@ func (c *EmailConsumer) handleMessage(data []byte) error {
 		return err
 	}
 
-	// Update the message status to SENT when it begins processing
-	if err := c.updateMessageStatus(message.UUID, models.StatusSent); err != nil {
-		logger.WithError(err).Info("Failed to update message status to SENT - will continue processing")
-	}
 	// Fetch the template
 	var template models.Template
-	if err := c.db.Where("uuid = ? AND channel = ?", message.Message.Template, models.ChannelEmail).First(&template).Error; err != nil {
+	if err := c.db.Where("uuid = ? AND tenant_id = ? AND channel = ?", message.Message.Template, message.Message.TenantID, models.ChannelEmail).First(&template).Error; err != nil {
 		logger.WithError(err).Error("Failed to find template")
 		if err := c.updateMessageStatus(message.UUID, models.StatusRejected); err != nil {
 			logger.WithError(err).Error("Failed to update message status to REJECTED")
@@ -114,9 +110,9 @@ func (c *EmailConsumer) handleMessage(data []byte) error {
 
 	logger.Info("Email sent successfully")
 
-	// Update status to DELIVERED
-	if err := c.updateMessageStatus(message.UUID, models.StatusDelivered); err != nil {
-		logger.WithError(err).Error("Failed to update message status to DELIVERED")
+	// Update status to SENT
+	if err := c.updateMessageStatus(message.UUID, models.StatusSent); err != nil {
+		logger.WithError(err).Error("Failed to update message status to SENT")
 		return err
 	}
 
@@ -129,15 +125,16 @@ func (c *EmailConsumer) ensureMessageExists(message EmailMessage) error {
 	// Check if the message exists in the database
 	var dbMessage models.Message
 	if err := c.db.Where("uuid = ?", message.UUID).First(&dbMessage).Error; err != nil {
-		// If not found, create it with proper identifiers and categories
-
-		// Create identifiers JSON for the database
-		identifiersJSON := models.JSON{
-			"tenant":     message.Message.Identifiers.Tenant,
-			"eventUuid":  message.Message.Identifiers.EventUUID,
-			"actionUuid": message.Message.Identifiers.ActionUUID,
-			"actionCode": message.Message.Identifiers.ActionCode,
+		if err == gorm.ErrRecordNotFound {
+			// Log as info, not error
+			helper.Log.WithField("message_uuid", message.UUID).Info("Message record not found, creating new message")
+		} else {
+			// Log other errors as error
+			helper.Log.WithError(err).Error("Database error when checking for message existence")
 		}
+
+		// Save the Identifiers object as-is
+		identifiersJSON := message.Message.Identifiers
 
 		// Convert categories array to JSON
 		categoriesJSON := models.JSON{}
@@ -145,31 +142,40 @@ func (c *EmailConsumer) ensureMessageExists(message EmailMessage) error {
 			categoriesJSON[fmt.Sprintf("%d", i)] = category
 		}
 
-		// Create a new message with ACCEPTED status
+		// Generate UUID for new message if not provided
+		uuid := message.UUID
+		if uuid == "" {
+			var err error
+			uuid, err = helper.GenerateUUID()
+			if err != nil {
+				helper.Log.WithError(err).Error("Failed to generate UUID for new message")
+				return fmt.Errorf("failed to generate UUID for new message: %w", err)
+			}
+		}
 		newMessage := models.Message{
-			UUID:        message.UUID,
+			UUID:        uuid,
 			Channel:     models.ChannelEmail,
 			Status:      models.StatusAccepted,
 			RefNo:       message.Message.RefNo,
 			Identifiers: identifiersJSON,
 			Categories:  categoriesJSON,
+			TenantID:    message.Message.TenantID,
 		}
 
 		if err := c.db.Create(&newMessage).Error; err != nil {
-			helper.Log.WithError(err).WithField("message_uuid", message.UUID).Error("Failed to create new message")
-			return fmt.Errorf("failed to create new message with UUID %s: %w", message.UUID, err)
+			helper.Log.WithError(err).WithField("message_uuid", uuid).Error("Failed to create new message")
+			return fmt.Errorf("failed to create new message with UUID %s: %w", uuid, err)
 		}
 
 		// Create an ACCEPTED event in message_events table
 		event := models.MessageEvent{
-			MessageID: message.UUID,
+			MessageID: newMessage.ID,
 			Status:    models.EventStatusAccepted,
 			Timestamp: time.Now().UTC(),
 			Reason:    "Message created during processing due to missing record",
 		}
-
-		if err := c.db.Create(&event).Error; err != nil {
-			helper.Log.WithError(err).WithField("message_uuid", message.UUID).Error("Failed to create acceptance event")
+		if err := InsertMessageEvent(c.db, event); err != nil {
+			helper.Log.WithError(err).WithField("message_id", newMessage.ID).Error("Failed to create acceptance event")
 		}
 
 		helper.Log.WithField("message_uuid", message.UUID).Info("Created new message with ACCEPTED status")
@@ -195,10 +201,20 @@ func (c *EmailConsumer) updateMessageStatus(uuid string, status models.Status) e
 
 	// Create an event for the status change
 	event := models.MessageEvent{
-		MessageID: uuid,
+		MessageID: message.ID,
 		Status:    models.MessageEventType(status),
 		Timestamp: time.Now().UTC(),
 	}
+	return InsertMessageEvent(c.db, event)
+}
 
-	return c.db.Create(&event).Error
+// InsertMessageEvent inserts a MessageEvent with a generated UUID
+func InsertMessageEvent(db *gorm.DB, event models.MessageEvent) error {
+	uuid, err := helper.GenerateUUID()
+	if err != nil {
+		helper.Log.WithError(err).Error("Failed to generate UUID for MessageEvent")
+		return fmt.Errorf("failed to generate UUID for MessageEvent: %w", err)
+	}
+	event.UUID = uuid
+	return db.Create(&event).Error
 }

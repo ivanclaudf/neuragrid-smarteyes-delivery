@@ -249,12 +249,7 @@ func (m *DirectPushEmailMessage) GetRefNo() string {
 
 // GetIdentifiers returns the identifiers of the email message
 func (m *DirectPushEmailMessage) GetIdentifiers() map[string]interface{} {
-	return map[string]interface{}{
-		"tenant":     m.Message.Identifiers.Tenant,
-		"eventUuid":  m.Message.Identifiers.EventUUID,
-		"actionUuid": m.Message.Identifiers.ActionUUID,
-		"actionCode": m.Message.Identifiers.ActionCode,
-	}
+	return m.Message.Identifiers
 }
 
 // GetCategories returns the categories of the email message
@@ -279,7 +274,7 @@ func (m *DirectPushEmailMessage) Validate() error {
 	if len(m.Message.Categories) == 0 {
 		return errors.New("at least one category is required")
 	}
-	if m.Message.Identifiers.Tenant == "" {
+	if m.Message.TenantID == "" {
 		return errors.New("tenant identifier is required")
 	}
 	return nil
@@ -291,13 +286,8 @@ func (m *DirectPushEmailMessage) Push() error {
 		return err
 	}
 
-	// Create identifiers JSON for the database
-	identifiersJSON := models.JSON{
-		"tenant":     m.Message.Identifiers.Tenant,
-		"eventUuid":  m.Message.Identifiers.EventUUID,
-		"actionUuid": m.Message.Identifiers.ActionUUID,
-		"actionCode": m.Message.Identifiers.ActionCode,
-	}
+	// Save the Identifiers object as-is
+	identifiersJSON := m.Message.Identifiers
 
 	// Convert categories array to JSON
 	categoriesJSON := models.JSON{}
@@ -313,6 +303,7 @@ func (m *DirectPushEmailMessage) Push() error {
 		Identifiers: identifiersJSON,
 		RefNo:       m.Message.RefNo,
 		Categories:  categoriesJSON,
+		TenantID:    m.Message.TenantID,
 	}
 
 	// Save to database
@@ -347,12 +338,7 @@ func (m *DirectPushSMSMessage) GetRefNo() string {
 
 // GetIdentifiers returns the identifiers of the SMS message
 func (m *DirectPushSMSMessage) GetIdentifiers() map[string]interface{} {
-	return map[string]interface{}{
-		"tenant":     m.Message.Identifiers.Tenant,
-		"eventUuid":  m.Message.Identifiers.EventUUID,
-		"actionUuid": m.Message.Identifiers.ActionUUID,
-		"actionCode": m.Message.Identifiers.ActionCode,
-	}
+	return m.Message.Identifiers
 }
 
 // GetCategories returns the categories of the SMS message
@@ -380,7 +366,7 @@ func (m *DirectPushSMSMessage) Validate() error {
 	if len(m.Message.Categories) == 0 {
 		return errors.New("at least one category is required")
 	}
-	if m.Message.Identifiers.Tenant == "" {
+	if m.Message.TenantID == "" {
 		return errors.New("tenant identifier is required")
 	}
 	return nil
@@ -392,13 +378,8 @@ func (m *DirectPushSMSMessage) Push() error {
 		return err
 	}
 
-	// Create identifiers JSON for the database
-	identifiersJSON := models.JSON{
-		"tenant":     m.Message.Identifiers.Tenant,
-		"eventUuid":  m.Message.Identifiers.EventUUID,
-		"actionUuid": m.Message.Identifiers.ActionUUID,
-		"actionCode": m.Message.Identifiers.ActionCode,
-	}
+	// Save the Identifiers object as-is
+	identifiersJSON := m.Message.Identifiers
 
 	// Convert categories array to JSON
 	categoriesJSON := models.JSON{}
@@ -414,6 +395,7 @@ func (m *DirectPushSMSMessage) Push() error {
 		Identifiers: identifiersJSON,
 		RefNo:       m.Message.RefNo,
 		Categories:  categoriesJSON,
+		TenantID:    m.Message.TenantID,
 	}
 
 	// Save to database
@@ -448,12 +430,7 @@ func (m *DirectPushWhatsAppMessage) GetRefNo() string {
 
 // GetIdentifiers returns the identifiers of the WhatsApp message
 func (m *DirectPushWhatsAppMessage) GetIdentifiers() map[string]interface{} {
-	return map[string]interface{}{
-		"tenant":     m.Message.Identifiers.Tenant,
-		"eventUuid":  m.Message.Identifiers.EventUUID,
-		"actionUuid": m.Message.Identifiers.ActionUUID,
-		"actionCode": m.Message.Identifiers.ActionCode,
-	}
+	return m.Message.Identifiers
 }
 
 // GetCategories returns the categories of the WhatsApp message
@@ -478,7 +455,7 @@ func (m *DirectPushWhatsAppMessage) Validate() error {
 	if len(m.Message.Categories) == 0 {
 		return errors.New("at least one category is required")
 	}
-	if m.Message.Identifiers.Tenant == "" {
+	if m.Message.TenantID == "" {
 		return errors.New("tenant identifier is required")
 	}
 	return nil
@@ -490,13 +467,8 @@ func (m *DirectPushWhatsAppMessage) Push() error {
 		return err
 	}
 
-	// Create identifiers JSON for the database
-	identifiersJSON := models.JSON{
-		"tenant":     m.Message.Identifiers.Tenant,
-		"eventUuid":  m.Message.Identifiers.EventUUID,
-		"actionUuid": m.Message.Identifiers.ActionUUID,
-		"actionCode": m.Message.Identifiers.ActionCode,
-	}
+	// Save the Identifiers object as-is
+	identifiersJSON := m.Message.Identifiers
 
 	// Convert categories array to JSON
 	categoriesJSON := models.JSON{}

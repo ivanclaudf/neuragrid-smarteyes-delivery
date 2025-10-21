@@ -1,16 +1,19 @@
+
 # Template Documentation
 
 This document provides information about creating and using templates in the Delivery Service.
 
+---
+
 ## Template Variables
 
-Templates now support variable substitution using Go's [text/template](https://pkg.go.dev/text/template) package. This allows you to create dynamic templates where variables are replaced with actual values at runtime.
+Templates support variable substitution using Go's [`text/template`](https://pkg.go.dev/text/template) package. This allows you to create dynamic templates where variables are replaced with actual values at runtime.
 
 ### Basic Usage
 
 To include a variable in your template content, use the `{{ .VariableName }}` syntax. For example:
 
-```
+```text
 Hello {{.name}}, your order {{.orderNumber}} has been confirmed!
 ```
 
@@ -27,7 +30,7 @@ When sending a message, provide the variable values in the `params` object:
 
 The system will render the template and replace the variables with the provided values before sending:
 
-```
+```text
 Hello John, your order ORD-12345 has been confirmed!
 ```
 
@@ -37,27 +40,27 @@ Go templates support a range of functions for formatting and conditional logic:
 
 #### Basic Functions
 
-- `{{.variable}}` - Insert a variable value
-- `{{if .condition}}...{{else}}...{{end}}` - Conditional blocks
-- `{{range .items}}...{{end}}` - Loop over items
+- `{{.variable}}` — Insert a variable value
+- `{{if .condition}}...{{else}}...{{end}}` — Conditional blocks
+- `{{range .items}}...{{end}}` — Loop over items
 
 #### String Operations
 
-- `{{.variable | upper}}` - Convert to uppercase
-- `{{.variable | lower}}` - Convert to lowercase
-- `{{.variable | title}}` - Title case
+- `{{.variable | upper}}` — Convert to uppercase
+- `{{.variable | lower}}` — Convert to lowercase
+- `{{.variable | title}}` — Title case
 
 ### Example Templates
 
 #### Simple Greeting
 
-```
+```text
 Hello {{.name}}! Thank you for using our service.
 ```
 
 #### Conditional Content
 
-```
+```text
 Hello {{.name}}!
 {{if .isPremium}}
 Thank you for being a premium customer!
@@ -68,7 +71,7 @@ Consider upgrading to our premium plan for additional benefits.
 
 #### Alert with Formatting
 
-```
+```text
 ALERT: {{.alertType | upper}}
 Time: {{.timestamp}}
 Description: {{.description}}
@@ -77,6 +80,8 @@ Action Required: {{.action}}
 {{end}}
 ```
 
+---
+
 ## Best Practices
 
 1. Always provide default values for required variables
@@ -84,6 +89,8 @@ Action Required: {{.action}}
 3. Keep templates simple and readable
 4. Document the required variables for each template
 
+---
+
 ## Technical Details
 
-The template rendering is performed using Go's standard library `text/template` package. The variables are passed as a map from the request's `params` field and rendered just before sending the message to the provider.
+Template rendering is performed using Go's standard library `text/template` package. The variables are passed as a map from the request's `params` field and rendered just before sending the message to the provider.

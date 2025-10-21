@@ -16,32 +16,28 @@ type EmailRequest struct {
 
 // EmailMessage represents a single email message request
 type EmailMessage struct {
-	Template    string               `json:"template" validate:"required"`
-	To          []EmailRecipient     `json:"to" validate:"required,min=1"`
-	Provider    string               `json:"provider" validate:"required,uuid4"`
-	RefNo       string               `json:"refno" validate:"required"`
-	Categories  []string             `json:"categories" validate:"required,min=1"`
-	Identifiers EmailIdentifiers     `json:"identifiers" validate:"required"`
-	Params      map[string]string    `json:"params"`
-	Subject     string               `json:"subject,omitempty"`
-	Attachments []AttachmentMetadata `json:"attachments,omitempty"`
+	Template    string                 `json:"template" validate:"required"`
+	To          []EmailRecipient       `json:"to" validate:"required,min=1"`
+	Provider    string                 `json:"provider" validate:"required,uuid4"`
+	RefNo       string                 `json:"refno" validate:"required"`
+	Categories  []string               `json:"categories" validate:"required,min=1"`
+	Identifiers map[string]interface{} `json:"identifiers" validate:"required"`
+	Params      map[string]string      `json:"params"`
+	Subject     string                 `json:"subject,omitempty"`
+	Attachments []AttachmentMetadata   `json:"attachments,omitempty"`
+	TenantID    string                 `json:"tenantId" validate:"required"`
 }
 
 // ToModelEmailMessage converts API EmailMessage to models.EmailMessage
 func (e *EmailMessage) ToModelEmailMessage() *models.EmailMessage {
 	modelMessage := &models.EmailMessage{
-		Template:   e.Template,
-		Provider:   e.Provider,
-		RefNo:      e.RefNo,
-		Categories: e.Categories,
-		Identifiers: models.EmailIdentifiers{
-			Tenant:     e.Identifiers.Tenant,
-			EventUUID:  e.Identifiers.EventUUID,
-			ActionUUID: e.Identifiers.ActionUUID,
-			ActionCode: e.Identifiers.ActionCode,
-		},
-		Params:  e.Params,
-		Subject: e.Subject,
+		Template:    e.Template,
+		Provider:    e.Provider,
+		RefNo:       e.RefNo,
+		Categories:  e.Categories,
+		Identifiers: e.Identifiers,
+		Params:      e.Params,
+		Subject:     e.Subject,
 	}
 
 	// Convert recipients
@@ -72,14 +68,6 @@ func (e *EmailMessage) ToModelEmailMessage() *models.EmailMessage {
 type EmailRecipient struct {
 	Name  string `json:"name,omitempty"`
 	Email string `json:"email" validate:"required,email"`
-}
-
-// EmailIdentifiers represents identifiers for an email message
-type EmailIdentifiers struct {
-	Tenant     string `json:"tenant" validate:"required"`
-	EventUUID  string `json:"eventUuid" validate:"omitempty,uuid4"`
-	ActionUUID string `json:"actionUuid" validate:"omitempty,uuid4"`
-	ActionCode string `json:"actionCode"`
 }
 
 // AttachmentMetadata represents metadata for an email attachment
@@ -157,7 +145,7 @@ func (a *EmailAPI) ProcessMessageBatch(request EmailRequest) ([]EmailMessageResp
 			"template":     message.Template,
 			"provider":     message.Provider,
 			"refNo":        message.RefNo,
-			"tenant":       message.Identifiers.Tenant,
+			"tenantId":     message.TenantID,
 			"to":           message.To,
 		})
 
@@ -204,7 +192,7 @@ func (a *EmailAPI) DirectPushEmailMessage(modelMessage *models.EmailMessage) (st
 		"template":   modelMessage.Template,
 		"provider":   modelMessage.Provider,
 		"refNo":      modelMessage.RefNo,
-		"tenant":     modelMessage.Identifiers.Tenant,
+		"tenantId":   modelMessage.TenantID,
 		"recipients": len(modelMessage.To),
 	})
 

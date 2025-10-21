@@ -3,6 +3,7 @@ package handler
 import (
 	"delivery/api"
 	"delivery/helper"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -59,9 +60,19 @@ func (h *ProviderHandler) CreateProviders(w http.ResponseWriter, r *http.Request
 	// Call API to create providers
 	response, err := h.api.CreateProviders(request)
 	if err != nil {
+		errStr := err.Error()
+		if errStr == fmt.Sprintf("%d:%s", helper.CodeDuplicate, helper.MsgDuplicate) {
+			helper.Log.WithFields(logrus.Fields{
+				"handler": "CreateProviders",
+				"error":   errStr,
+				"count":   len(request.Providers),
+			}).Warn("Duplicate provider")
+			helper.RespondWithError(w, http.StatusConflict, helper.CodeDuplicate, helper.MsgDuplicate)
+			return
+		}
 		helper.Log.WithFields(logrus.Fields{
 			"handler": "CreateProviders",
-			"error":   err.Error(),
+			"error":   errStr,
 			"count":   len(request.Providers),
 		}).Error("Failed to create providers")
 		helper.RespondWithError(w, http.StatusInternalServerError, helper.CodeServerError, helper.MsgServerError)
@@ -106,21 +117,29 @@ func (h *ProviderHandler) UpdateProvider(w http.ResponseWriter, r *http.Request)
 	// Call API to update provider
 	response, err := h.api.UpdateProvider(uuid, request)
 	if err != nil {
-		// Handle specific error cases
-		if err.Error() == "provider not found" {
+		errStr := err.Error()
+		if errStr == fmt.Sprintf("%d:%s", helper.CodeDuplicate, helper.MsgDuplicate) {
 			helper.Log.WithFields(logrus.Fields{
 				"handler": "UpdateProvider",
 				"uuid":    uuid,
-				"error":   err.Error(),
+				"error":   errStr,
+			}).Warn("Duplicate provider")
+			helper.RespondWithError(w, http.StatusConflict, helper.CodeDuplicate, helper.MsgDuplicate)
+			return
+		}
+		if errStr == "provider not found" {
+			helper.Log.WithFields(logrus.Fields{
+				"handler": "UpdateProvider",
+				"uuid":    uuid,
+				"error":   errStr,
 			}).Warn("Provider not found")
 			helper.RespondWithError(w, http.StatusNotFound, helper.CodeNotFound, "Provider not found")
 			return
 		}
-
 		helper.Log.WithFields(logrus.Fields{
 			"handler": "UpdateProvider",
 			"uuid":    uuid,
-			"error":   err.Error(),
+			"error":   errStr,
 		}).Error("Failed to update provider")
 		helper.RespondWithError(w, http.StatusInternalServerError, helper.CodeServerError, helper.MsgServerError)
 		return

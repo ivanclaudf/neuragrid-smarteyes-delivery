@@ -16,33 +16,29 @@ type SMSRequest struct {
 
 // SMSMessage represents a single SMS message
 type SMSMessage struct {
-	To          []SMSRecipient    `json:"to" validate:"required,min=1"`
-	From        string            `json:"from" validate:"required"`
-	Body        string            `json:"body"` // For backward compatibility, not required when using template
-	Template    string            `json:"template" validate:"required"`
-	Provider    string            `json:"provider" validate:"required,uuid4"`
-	RefNo       string            `json:"refno" validate:"required"`
-	Categories  []string          `json:"categories" validate:"required,min=1"`
-	Identifiers SMSIdentifiers    `json:"identifiers" validate:"required"`
-	Params      map[string]string `json:"params"`
+	To          []SMSRecipient         `json:"to" validate:"required,min=1"`
+	From        string                 `json:"from" validate:"required"`
+	Body        string                 `json:"body"` // For backward compatibility, not required when using template
+	Template    string                 `json:"template" validate:"required"`
+	Provider    string                 `json:"provider" validate:"required,uuid4"`
+	RefNo       string                 `json:"refno" validate:"required"`
+	Categories  []string               `json:"categories" validate:"required,min=1"`
+	Identifiers map[string]interface{} `json:"identifiers" validate:"required"`
+	Params      map[string]string      `json:"params"`
+	TenantID    string                 `json:"tenantId" validate:"required"`
 }
 
 // ToModelSMSMessage converts API SMSMessage to models.SMSMessage
 func (s *SMSMessage) ToModelSMSMessage() *models.SMSMessage {
 	modelMessage := &models.SMSMessage{
-		From:       s.From,
-		Body:       s.Body,
-		Template:   s.Template,
-		Provider:   s.Provider,
-		RefNo:      s.RefNo,
-		Categories: s.Categories,
-		Identifiers: models.SMSIdentifiers{
-			Tenant:     s.Identifiers.Tenant,
-			EventUUID:  s.Identifiers.EventUUID,
-			ActionUUID: s.Identifiers.ActionUUID,
-			ActionCode: s.Identifiers.ActionCode,
-		},
-		Params: s.Params,
+		From:        s.From,
+		Body:        s.Body,
+		Template:    s.Template,
+		Provider:    s.Provider,
+		RefNo:       s.RefNo,
+		Categories:  s.Categories,
+		Identifiers: s.Identifiers,
+		Params:      s.Params,
 	}
 
 	// Convert recipients
@@ -59,14 +55,6 @@ func (s *SMSMessage) ToModelSMSMessage() *models.SMSMessage {
 // SMSRecipient represents a recipient for an SMS message
 type SMSRecipient struct {
 	Telephone string `json:"telephone" validate:"required,e164"`
-}
-
-// SMSIdentifiers represents identifiers for an SMS message
-type SMSIdentifiers struct {
-	Tenant     string `json:"tenant" validate:"required"`
-	EventUUID  string `json:"eventUuid" validate:"omitempty,uuid4"`
-	ActionUUID string `json:"actionUuid" validate:"omitempty,uuid4"`
-	ActionCode string `json:"actionCode"`
 }
 
 // SMSResponse represents the response body for sending SMS messages
@@ -136,7 +124,7 @@ func (a *SMSAPI) ProcessMessageBatch(request SMSRequest) ([]SMSMessageResponse, 
 			"messageIndex": idx,
 			"provider":     message.Provider,
 			"refNo":        message.RefNo,
-			"tenant":       message.Identifiers.Tenant,
+			"tenantId":     message.TenantID,
 			"from":         message.From,
 		})
 
@@ -182,7 +170,7 @@ func (a *SMSAPI) DirectPushSMSMessage(modelMessage *models.SMSMessage) (string, 
 	logger := helper.Log.WithFields(map[string]interface{}{
 		"provider": modelMessage.Provider,
 		"refNo":    modelMessage.RefNo,
-		"tenant":   modelMessage.Identifiers.Tenant,
+		"tenantId": modelMessage.TenantID,
 		"from":     modelMessage.From,
 	})
 

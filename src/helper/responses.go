@@ -5,6 +5,16 @@ import (
 	"net/http"
 )
 
+// APIError is a custom error type for API responses
+type APIError struct {
+	StatusCode int    // HTTP status code
+	Message    string // Error message
+}
+
+func (e *APIError) Error() string {
+	return e.Message
+}
+
 // APIResponse represents a standard API response structure
 type APIResponse struct {
 	Code    int         `json:"code"`

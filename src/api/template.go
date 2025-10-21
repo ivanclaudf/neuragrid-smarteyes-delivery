@@ -23,7 +23,7 @@ type TemplateRequestItem struct {
 	Content     string      `json:"content" binding:"required"`
 	Channel     string      `json:"channel" binding:"required"`
 	TemplateIds models.JSON `json:"templateIds"`
-	Tenant      string      `json:"tenant" binding:"required"`
+	TenantID    string      `json:"tenantId" binding:"required"`
 	Status      *int        `json:"status,omitempty"`
 }
 
@@ -41,7 +41,7 @@ type TemplateResponseItem struct {
 	Content     string      `json:"content"`
 	Channel     string      `json:"channel"`
 	TemplateIds models.JSON `json:"templateIds"`
-	Tenant      string      `json:"tenant"`
+	TenantID    string      `json:"tenantId"`
 	Status      int         `json:"status"`
 	CreatedAt   string      `json:"createdAt"`
 	UpdatedAt   string      `json:"updatedAt"`
@@ -49,11 +49,11 @@ type TemplateResponseItem struct {
 
 // TemplateListParams represents parameters for listing templates
 type TemplateListParams struct {
-	Limit   int    `json:"limit" form:"limit"`
-	Offset  int    `json:"offset" form:"offset"`
-	Channel string `json:"channel" form:"channel"`
-	Tenant  string `json:"tenant" form:"tenant"`
-	Code    string `json:"code" form:"code"`
+	Limit    int    `json:"limit" form:"limit"`
+	Offset   int    `json:"offset" form:"offset"`
+	Channel  string `json:"channel" form:"channel"`
+	TenantID string `json:"tenantId" form:"tenantId"`
+	Code     string `json:"code" form:"code"`
 }
 
 // TemplateAPI handles template business logic
@@ -98,10 +98,10 @@ func (a *TemplateAPI) CreateTemplates(request TemplateRequest) (*TemplateRespons
 
 	for idx, templateItem := range request.Templates {
 		templateLogger := logger.WithFields(logrus.Fields{
-			"index":   idx,
-			"name":    templateItem.Name,
-			"channel": templateItem.Channel,
-			"tenant":  templateItem.Tenant,
+			"index":    idx,
+			"name":     templateItem.Name,
+			"channel":  templateItem.Channel,
+			"tenantId": templateItem.TenantID,
 		})
 
 		templateLogger.Debug("Processing template item")
@@ -122,12 +122,24 @@ func (a *TemplateAPI) CreateTemplates(request TemplateRequest) (*TemplateRespons
 			Content:     templateItem.Content,
 			Channel:     models.Channel(templateItem.Channel),
 			TemplateIds: templateItem.TemplateIds,
-			Tenant:      templateItem.Tenant,
+			TenantID:    templateItem.TenantID,
 		}
 
 		// Set status if provided (otherwise DB default will be used)
 		if templateItem.Status != nil {
 			template.Status = *templateItem.Status
+		}
+
+		// Check for duplicate (code, tenant_id, channel)
+		var count int64
+		err = a.DB.Model(&models.Template{}).Where("code = ? AND tenant_id = ? AND channel = ?", template.Code, template.TenantID, template.Channel).Count(&count).Error
+		if err != nil {
+			templateLogger.WithError(err).Error("Failed to check for duplicate template")
+			return nil, fmt.Errorf("failed to check for duplicate template: %v", err)
+		}
+		if count > 0 {
+			templateLogger.Error("Duplicate template (code, tenant_id, channel) exists")
+			return nil, fmt.Errorf("%d:%s", helper.CodeDuplicate, helper.MsgDuplicate)
 		}
 
 		// Save template to database
@@ -147,7 +159,7 @@ func (a *TemplateAPI) CreateTemplates(request TemplateRequest) (*TemplateRespons
 			Content:     template.Content,
 			Channel:     string(template.Channel),
 			TemplateIds: template.TemplateIds,
-			Tenant:      template.Tenant,
+			TenantID:    template.TenantID,
 			Status:      template.Status,
 			CreatedAt:   template.CreatedAt.Format(helper.TimeFormat),
 			UpdatedAt:   template.UpdatedAt.Format(helper.TimeFormat),
@@ -182,9 +194,9 @@ func (a *TemplateAPI) UpdateTemplate(uuid string, request TemplateRequest) (*Tem
 
 	templateItem := request.Templates[0]
 	logger = logger.WithFields(logrus.Fields{
-		"name":    templateItem.Name,
-		"channel": templateItem.Channel,
-		"tenant":  templateItem.Tenant,
+		"name":     templateItem.Name,
+		"channel":  templateItem.Channel,
+		"tenantId": templateItem.TenantID,
 	})
 
 	// Get existing template
@@ -227,6 +239,30 @@ func (a *TemplateAPI) UpdateTemplate(uuid string, request TemplateRequest) (*Tem
 		updates["status"] = *templateItem.Status
 	}
 
+	// If channel or tenant_id is being updated, check for duplicate
+	newChannel := template.Channel
+	if ch, ok := updates["channel"]; ok {
+		newChannel = ch.(models.Channel)
+	}
+	newTenantID := template.TenantID
+	if tid, ok := updates["tenant_id"]; ok {
+		newTenantID = tid.(string)
+	}
+	if newChannel != template.Channel || newTenantID != template.TenantID {
+		var count int64
+		err := a.DB.Model(&models.Template{}).
+			Where("code = ? AND tenant_id = ? AND channel = ? AND uuid != ?", template.Code, newTenantID, newChannel, template.UUID).
+			Count(&count).Error
+		if err != nil {
+			logger.WithError(err).Error("Failed to check for duplicate template on update")
+			return nil, fmt.Errorf("failed to check for duplicate template: %v", err)
+		}
+		if count > 0 {
+			logger.Error("Duplicate template (code, tenant_id, channel) exists on update")
+			return nil, fmt.Errorf("%d:%s", helper.CodeDuplicate, helper.MsgDuplicate)
+		}
+	}
+
 	// Apply updates if there are any
 	if len(updates) > 0 {
 		if err := a.DB.Model(&template).Updates(updates).Error; err != nil {
@@ -253,7 +289,7 @@ func (a *TemplateAPI) UpdateTemplate(uuid string, request TemplateRequest) (*Tem
 				Content:     template.Content,
 				Channel:     string(template.Channel),
 				TemplateIds: template.TemplateIds,
-				Tenant:      template.Tenant,
+				TenantID:    template.TenantID,
 				Status:      template.Status,
 				CreatedAt:   template.CreatedAt.Format(helper.TimeFormat),
 				UpdatedAt:   template.UpdatedAt.Format(helper.TimeFormat),
@@ -293,7 +329,7 @@ func (a *TemplateAPI) GetTemplate(uuid string) (*TemplateResponse, error) {
 				Content:     template.Content,
 				Channel:     string(template.Channel),
 				TemplateIds: template.TemplateIds,
-				Tenant:      template.Tenant,
+				TenantID:    template.TenantID,
 				Status:      template.Status,
 				CreatedAt:   template.CreatedAt.Format(helper.TimeFormat),
 				UpdatedAt:   template.UpdatedAt.Format(helper.TimeFormat),
@@ -313,7 +349,7 @@ func (a *TemplateAPI) ListTemplates(params TemplateListParams) (*TemplateRespons
 		"limit":     params.Limit,
 		"offset":    params.Offset,
 		"channel":   params.Channel,
-		"tenant":    params.Tenant,
+		"tenantId":  params.TenantID,
 	})
 
 	logger.Info("Listing templates")
@@ -330,8 +366,8 @@ func (a *TemplateAPI) ListTemplates(params TemplateListParams) (*TemplateRespons
 	if params.Channel != "" {
 		query = query.Where("channel = ?", params.Channel)
 	}
-	if params.Tenant != "" {
-		query = query.Where("tenant = ?", params.Tenant)
+	if params.TenantID != "" {
+		query = query.Where("tenant_id = ?", params.TenantID)
 	}
 	if params.Code != "" {
 		query = query.Where("code = ?", params.Code)
@@ -365,7 +401,7 @@ func (a *TemplateAPI) ListTemplates(params TemplateListParams) (*TemplateRespons
 			Content:     template.Content,
 			Channel:     string(template.Channel),
 			TemplateIds: template.TemplateIds,
-			Tenant:      template.Tenant,
+			TenantID:    template.TenantID,
 			Status:      template.Status,
 			CreatedAt:   template.CreatedAt.Format(helper.TimeFormat),
 			UpdatedAt:   template.UpdatedAt.Format(helper.TimeFormat),

@@ -1,14 +1,19 @@
+---
 # Direct Pulsar Integration Guide
 
-This document explains how to use the direct Pulsar integration feature for the delivery service. The delivery service now allows direct pushing of messages to Pulsar topics as an alternative to using the REST API.
+This document explains how to use the direct Pulsar integration feature for the Delivery Service. The service allows direct pushing of messages to Pulsar topics as an alternative to using the REST API.
+
+---
 
 ## Pulsar Topics
 
-The following Pulsar topics are used for the different message types:
+The following Pulsar topics are used for different message types:
 
 - **Email**: `delivery-email`
 - **SMS**: `delivery-sms`
 - **WhatsApp**: `delivery-whatsapp`
+
+---
 
 ## Message Structure
 
@@ -29,7 +34,7 @@ The following Pulsar topics are used for the different message types:
     "refNo": "reference-number",
     "categories": ["category1", "category2"],
     "identifiers": {
-      "tenant": "tenant-id",
+      "tenantId": "tenant-id",
       "eventUuid": "event-uuid",
       "actionUuid": "action-uuid",
       "actionCode": "action-code"
@@ -68,7 +73,7 @@ The following Pulsar topics are used for the different message types:
     "refNo": "reference-number",
     "categories": ["category1", "category2"],
     "identifiers": {
-      "tenant": "tenant-id",
+      "tenantId": "tenant-id",
       "eventUuid": "event-uuid",
       "actionUuid": "action-uuid",
       "actionCode": "action-code"
@@ -98,11 +103,11 @@ The following Pulsar topics are used for the different message types:
     "refNo": "reference-number",
     "categories": ["category1", "category2"],
     "identifiers": {
-      "tenant": "tenant-id",
-      "eventUuid": "event-uuid",
-      "actionUuid": "action-uuid",
-      "actionCode": "action-code"
-    },
+        "tenantId": "tenant-id",
+        "eventUuid": "event-uuid",
+        "actionUuid": "action-uuid",
+        "actionCode": "action-code"
+      },
     "params": {
       "key1": "value1",
       "key2": "value2"
@@ -130,7 +135,7 @@ For all message types, the following fields are required:
 - `message.provider`: The UUID of the provider to use
 - `message.refNo`: A unique reference number
 - `message.categories`: At least one category
-- `message.identifiers.tenant`: The tenant identifier
+- `message.identifiers.tenantId`: The tenant identifier
 
 Additional requirements by message type:
 
@@ -171,9 +176,9 @@ emailMessage := &models.EmailMessage{
     Provider: "provider-uuid",
     RefNo:    "ref-123",
     Categories: []string{"welcome", "onboarding"},
-    Identifiers: models.EmailIdentifiers{
-        Tenant: "tenant-id",
-    },
+  Identifiers: map[string]interface{}{
+    "tenantId": "tenant-id",
+  },
     Subject: "Welcome to Our Service",
 }
 
@@ -222,9 +227,9 @@ message = {
         "provider": "provider-uuid",
         "refNo": "ref-123",
         "categories": ["welcome", "onboarding"],
-        "identifiers": {
-            "tenant": "tenant-id"
-        },
+    "identifiers": {
+      "tenantId": "tenant-id"
+    },
         "subject": "Welcome to Our Service"
     }
 }

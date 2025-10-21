@@ -16,30 +16,27 @@ type WhatsAppRequest struct {
 
 // WhatsAppMessage represents a single WhatsApp message
 type WhatsAppMessage struct {
-	Template    string               `json:"template" validate:"required"`
-	To          []WhatsAppRecipient  `json:"to" validate:"required,min=1"`
-	Provider    string               `json:"provider" validate:"required,uuid4"`
-	RefNo       string               `json:"refno" validate:"required"`
-	Categories  []string             `json:"categories" validate:"required,min=1"`
-	Identifiers WhatsAppIdentifiers  `json:"identifiers" validate:"required"`
-	Params      map[string]string    `json:"params"`
-	Attachments *WhatsAppAttachments `json:"attachments"`
+	Template    string                 `json:"template" validate:"required"`
+	To          []WhatsAppRecipient    `json:"to" validate:"required,min=1"`
+	Provider    string                 `json:"provider" validate:"required,uuid4"`
+	RefNo       string                 `json:"refno" validate:"required"`
+	Categories  []string               `json:"categories" validate:"required,min=1"`
+	TenantID    string                 `json:"tenantId" validate:"required"`
+	Identifiers map[string]interface{} `json:"identifiers" validate:"required"`
+	Params      map[string]string      `json:"params"`
+	Attachments *WhatsAppAttachments   `json:"attachments"`
 }
 
 // ToModelWhatsAppMessage converts API WhatsAppMessage to models.WhatsAppMessage
 func (w *WhatsAppMessage) ToModelWhatsAppMessage() *models.WhatsAppMessage {
 	modelMessage := &models.WhatsAppMessage{
-		Template:   w.Template,
-		Provider:   w.Provider,
-		RefNo:      w.RefNo,
-		Categories: w.Categories,
-		Identifiers: models.WhatsAppIdentifiers{
-			Tenant:     w.Identifiers.Tenant,
-			EventUUID:  w.Identifiers.EventUUID,
-			ActionUUID: w.Identifiers.ActionUUID,
-			ActionCode: w.Identifiers.ActionCode,
-		},
-		Params: w.Params,
+		Template:    w.Template,
+		Provider:    w.Provider,
+		RefNo:       w.RefNo,
+		Categories:  w.Categories,
+		TenantID:    w.TenantID,
+		Identifiers: w.Identifiers,
+		Params:      w.Params,
 	}
 
 	// Convert recipients
@@ -74,14 +71,6 @@ func (w *WhatsAppMessage) ToModelWhatsAppMessage() *models.WhatsAppMessage {
 type WhatsAppRecipient struct {
 	Name      string `json:"name"`
 	Telephone string `json:"telephone" validate:"required,e164"`
-}
-
-// WhatsAppIdentifiers represents identifiers for a WhatsApp message
-type WhatsAppIdentifiers struct {
-	Tenant     string `json:"tenant" validate:"required"`
-	EventUUID  string `json:"eventUuid" validate:"omitempty,uuid4"`
-	ActionUUID string `json:"actionUuid" validate:"omitempty,uuid4"`
-	ActionCode string `json:"actionCode"`
 }
 
 // WhatsAppAttachments represents attachments for a WhatsApp message
@@ -165,7 +154,7 @@ func (a *WhatsAppAPI) ProcessMessageBatch(request WhatsAppRequest) ([]WhatsAppMe
 			"template":     message.Template,
 			"provider":     message.Provider,
 			"refNo":        message.RefNo,
-			"tenant":       message.Identifiers.Tenant,
+			"tenantId":     message.TenantID,
 			"to":           message.To,
 		})
 
@@ -212,7 +201,7 @@ func (a *WhatsAppAPI) DirectPushWhatsAppMessage(modelMessage *models.WhatsAppMes
 		"template": modelMessage.Template,
 		"provider": modelMessage.Provider,
 		"refNo":    modelMessage.RefNo,
-		"tenant":   modelMessage.Identifiers.Tenant,
+		"tenantId": modelMessage.TenantID,
 	})
 
 	logger.Info("Creating direct push WhatsApp message")

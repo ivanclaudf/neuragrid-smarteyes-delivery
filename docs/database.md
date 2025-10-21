@@ -1,10 +1,13 @@
-# Database Documentation
+
+# Delivery Service Database Documentation
 
 This document provides details about the database structure, setup, and usage in the Delivery Service.
 
+---
+
 ## Database Schema
 
-The service uses PostgreSQL for data storage.
+The service uses **PostgreSQL** for data storage.
 
 ### Core Tables
 
@@ -14,56 +17,56 @@ The database includes tables for tracking message deliveries, status, templates,
 
 The `app_update` table tracks database migrations.
 
-| Column    | Type         | Description                                  |
-|-----------|--------------|----------------------------------------------|
-| id        | serial       | Primary key                                  |
-| version   | varchar(20)  | Version number (e.g., "0.0.1")               |
-| applied   | boolean      | Whether the migration was successfully applied|
-| applied_at| timestamp    | When the migration was applied               |
-| created_at| timestamp    | When the record was created                  |
-| updated_at| timestamp    | When the record was last updated             |
+| Column      | Type         | Description                                    |
+|-------------|--------------|------------------------------------------------|
+| id          | serial       | Primary key                                    |
+| version     | varchar(20)  | Version number (e.g., "0.0.1")                 |
+| applied     | boolean      | Whether the migration was successfully applied |
+| applied_at  | timestamp    | When the migration was applied                 |
+| created_at  | timestamp    | When the record was created                    |
+| updated_at  | timestamp    | When the record was last updated               |
 
 #### Provider
 
 The `provider` table stores messaging service provider configurations.
 
-| Column      | Type         | Description                                     |
-|-------------|--------------|-------------------------------------------------|
-| id          | serial       | Primary key                                     |
-| uuid        | varchar(36)  | Unique identifier                               |
-| code        | varchar(255) | Provider code (unique per tenant and channel)   |
-| provider    | varchar(255) | Provider implementation class (e.g., "TWILIO")  |
-| name        | varchar(255) | Human-readable provider name                    |
-| config      | jsonb        | Public provider configuration                   |
-| secure_config| jsonb       | Encrypted provider configuration                |
-| status      | smallint     | Provider status (0=inactive, 1=active)          |
-| channel     | varchar(10)  | Message channel (WHATSAPP, SMS, EMAIL)          |
-| tenant      | varchar(255) | Tenant identifier                               |
-| created_at  | timestamp    | When the record was created                     |
-| updated_at  | timestamp    | When the record was last updated                |
+| Column        | Type         | Description                                     |
+|---------------|--------------|-------------------------------------------------|
+| id            | serial       | Primary key                                     |
+| uuid          | varchar(36)  | Unique identifier                               |
+| code          | varchar(255) | Provider code (unique per tenant and channel)   |
+| provider      | varchar(255) | Provider implementation class (e.g., "TWILIO") |
+| name          | varchar(255) | Human-readable provider name                    |
+| config        | jsonb        | Public provider configuration                   |
+| secure_config | jsonb        | Encrypted provider configuration                |
+| status        | smallint     | Provider status (0=inactive, 1=active)          |
+| channel       | varchar(10)  | Message channel (WHATSAPP, SMS, EMAIL)          |
+| tenant        | varchar(255) | Tenant identifier                               |
+| created_at    | timestamp    | When the record was created                     |
+| updated_at    | timestamp    | When the record was last updated                |
 
-Unique index on `code`, `tenant`, and `channel` to ensure provider codes are unique within a tenant for each channel type.
+> Unique index on `code`, `tenant`, and `channel` to ensure provider codes are unique within a tenant for each channel type.
 
 #### Template
 
 The `template` table stores message templates.
 
-| Column      | Type         | Description                                   |
-|-------------|--------------|-----------------------------------------------|
-| id          | serial       | Primary key                                   |
-| uuid        | varchar(36)  | Unique identifier                             |
-| code        | varchar(50)  | Non-editable unique template code             |
-| name        | varchar(255) | Template name                                 |
-| subject     | varchar(255) | Subject line for EMAIL templates              |
-| content     | text         | Template content with placeholders            |
-| status      | smallint     | Template status (0=inactive, 1=active)        |
-| channel     | varchar(10)  | Message channel (WHATSAPP, SMS, EMAIL)        |
-| template_ids| jsonb        | Provider template IDs                         |
-| tenant      | varchar(255) | Tenant identifier                             |
-| created_at  | timestamp    | When the record was created                   |
-| updated_at  | timestamp    | When the record was last updated              |
+| Column        | Type         | Description                                   |
+|---------------|--------------|-----------------------------------------------|
+| id            | serial       | Primary key                                   |
+| uuid          | varchar(36)  | Unique identifier                             |
+| code          | varchar(50)  | Non-editable unique template code             |
+| name          | varchar(255) | Template name                                 |
+| subject       | varchar(255) | Subject line for EMAIL templates              |
+| content       | text         | Template content with placeholders            |
+| status        | smallint     | Template status (0=inactive, 1=active)        |
+| channel       | varchar(10)  | Message channel (WHATSAPP, SMS, EMAIL)        |
+| template_ids  | jsonb        | Provider template IDs                         |
+| tenant        | varchar(255) | Tenant identifier                             |
+| created_at    | timestamp    | When the record was created                   |
+| updated_at    | timestamp    | When the record was last updated              |
 
-Unique index on `tenant`, `code`, and `channel` to ensure template codes are unique within a tenant for each channel type.
+> Unique index on `tenant`, `code`, and `channel` to ensure template codes are unique within a tenant for each channel type.
 
 #### Message
 
@@ -89,15 +92,15 @@ The `message` table tracks message deliveries.
 
 The `message_event` table tracks events related to message deliveries.
 
-| Column      | Type         | Description                                   |
-|-------------|--------------|-----------------------------------------------|
-| id          | serial       | Primary key                                   |
-| uuid        | varchar(36)  | Unique identifier                             |
-| message_id  | varchar(36)  | Message UUID                                  |
-| event_type  | varchar(50)  | Event type (sent, delivered, read, etc.)      |
-| provider_ref| varchar(255) | Provider reference ID                         |
-| data        | jsonb        | Event data                                    |
-| created_at  | timestamp    | When the record was created                   |
+| Column        | Type         | Description                                   |
+|---------------|--------------|-----------------------------------------------|
+| id            | serial       | Primary key                                   |
+| uuid          | varchar(36)  | Unique identifier                             |
+| message_id    | varchar(36)  | Message UUID                                  |
+| event_type    | varchar(50)  | Event type (sent, delivered, read, etc.)      |
+| provider_ref  | varchar(255) | Provider reference ID                         |
+| data          | jsonb        | Event data                                    |
+| created_at    | timestamp    | When the record was created                   |
 | updated_at  | timestamp    | When the record was last updated              |
 
 ## Database Setup

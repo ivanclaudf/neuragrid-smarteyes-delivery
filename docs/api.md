@@ -1,21 +1,26 @@
-# API Documentation
+
+# Delivery Service API Documentation
 
 This document provides detailed information about the Delivery Service API endpoints, including request and response formats.
+
+---
 
 ## Health Check
 
 ### `GET /api/v1/health`
 
-Check the health status of the API.
+Checks the health status of the API.
 
 **Response:**
 
 ```json
 {
-    "status": "ok",
-    "version": "0.1.0"
+  "status": "ok",
+  "version": "0.1.0"
 }
 ```
+
+---
 
 ## WhatsApp API
 
@@ -23,7 +28,7 @@ Check the health status of the API.
 
 Send WhatsApp template messages to recipients. Messages are queued and processed asynchronously.
 
-**Request:**
+**Request Example:**
 
 ```json
 {
@@ -38,11 +43,9 @@ Send WhatsApp template messages to recipients. Messages are queued and processed
       ],
       "provider": "0bca5714-bceb-49a4-a4eb-e3afcec26328",
       "refno": "000000000001",
-      "categories": [
-        "detection_alerts"
-      ],
+      "categories": ["detection_alerts"],
+      "tenantId": "example-tenant",
       "identifiers": {
-        "tenant": "example-tenant",
         "eventUuid": "0bca5714-bceb-49a4-a4eb-e3afcec26328",
         "actionUuid": "0bca5714-bceb-49a4-a4eb-e3afcec26328",
         "actionCode": "notify_supervisor"
@@ -67,25 +70,25 @@ Send WhatsApp template messages to recipients. Messages are queued and processed
 
 **Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| messages | array | Yes | Array of message objects to send |
-| messages[].template | string | Yes | UUID of the template to use |
-| messages[].to | array | Yes | Array of recipient objects |
-| messages[].to[].name | string | No | Name of the recipient |
-| messages[].to[].telephone | string | Yes | Telephone number in E.164 format |
-| messages[].provider | string | Yes | UUID of the provider to use |
-| messages[].refno | string | Yes | Reference number for tracking |
-| messages[].categories | array | Yes | Array of category strings |
-| messages[].identifiers | object | Yes | Identifiers for message tracking |
-| messages[].identifiers.tenant | string | Yes | Tenant identifier |
-| messages[].identifiers.eventUuid | string | No | Event UUID |
-| messages[].identifiers.actionUuid | string | No | Action UUID |
-| messages[].identifiers.actionCode | string | No | Action code |
-| messages[].params | object | No | Template parameters |
-| messages[].attachments | object | No | Message attachments |
+| Parameter                        | Type    | Required | Description                                 |
+|----------------------------------|---------|----------|---------------------------------------------|
+| messages                         | array   | Yes      | Array of message objects to send            |
+| messages[].template              | string  | Yes      | UUID of the template to use                 |
+| messages[].to                    | array   | Yes      | Array of recipient objects                  |
+| messages[].to[].name             | string  | No       | Name of the recipient                       |
+| messages[].to[].telephone        | string  | Yes      | Telephone number in E.164 format            |
+| messages[].provider              | string  | Yes      | UUID of the provider to use                 |
+| messages[].refno                 | string  | Yes      | Reference number for tracking               |
+| messages[].categories            | array   | Yes      | Array of category strings                   |
+| messages[].identifiers           | object  | Yes      | Identifiers for message tracking            |
+| messages[].tenantId              | string  | Yes      | Tenant identifier                           |
+| messages[].identifiers.eventUuid | string  | No       | Event UUID                                  |
+| messages[].identifiers.actionUuid| string  | No       | Action UUID                                 |
+| messages[].identifiers.actionCode| string  | No       | Action code                                 |
+| messages[].params                | object  | No       | Template parameters                         |
+| messages[].attachments           | object  | No       | Message attachments                         |
 
-**Response:**
+**Response Example:**
 
 ```json
 {
@@ -177,12 +180,14 @@ Send SMS messages to recipients. Messages are queued and processed asynchronousl
       "categories": [
         "verification"
       ],
+      "tenantId": "example-tenant",
       "identifiers": {
-        "tenant": "example-tenant",
         "eventUuid": "0bca5714-bceb-49a4-a4eb-e3afcec26328",
-        "actionUuid": "0bca5714-bceb-49a4-a4eb-e3afcec26328",
         "actionCode": "user_verification"
       }
+          "tenantId": "example-tenant",
+          "identifiers": {
+            "eventUuid": "0bca5714-bceb-49a4-a4eb-e3afcec26328"
     }
   ]
 }
@@ -201,7 +206,8 @@ Send SMS messages to recipients. Messages are queued and processed asynchronousl
 | messages[].refno | string | Yes | Reference number for tracking |
 | messages[].categories | array | Yes | Array of category strings |
 | messages[].identifiers | object | Yes | Identifiers for message tracking |
-| messages[].identifiers.tenant | string | Yes | Tenant identifier |
+| messages[].tenantId | string | Yes | Tenant identifier |
+| messages[].tenantId | string | Yes | Tenant identifier |
 | messages[].identifiers.eventUuid | string | No | Event UUID |
 | messages[].identifiers.actionUuid | string | No | Action UUID |
 | messages[].identifiers.actionCode | string | No | Action code |

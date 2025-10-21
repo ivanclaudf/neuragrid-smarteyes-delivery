@@ -1,10 +1,7 @@
 package models
 
 import (
-	"delivery/helper"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // MessageEventType represents the status of a message event
@@ -29,22 +26,10 @@ const (
 type MessageEvent struct {
 	ID        uint             `gorm:"primarykey"`
 	UUID      string           `gorm:"type:varchar(36);uniqueIndex;not null"`
-	MessageID string           `gorm:"type:varchar(36);not null;index;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;references:UUID"` // Foreign key to Message.UUID
+	MessageID uint             `gorm:"not null;index;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;references:ID"` // Foreign key to Message.ID
 	Status    MessageEventType `gorm:"type:varchar(10);not null;index;check:status IN ('DELIVERED', 'FAILED', 'READ', 'SENT', 'ACCEPTED', 'REJECTED')"`
 	Reason    string           `gorm:"type:text;column:reason"` // Reason for status change, especially for failures
 	Metadata  JSON             `gorm:"type:jsonb"`
 	Timestamp time.Time        `gorm:"not null;index"` // Timestamp of when the event occurred
 	CreatedAt time.Time        `gorm:"autoCreateTime;not null;index"`
-}
-
-// BeforeCreate hook for MessageEvent model to automatically generate a UUID
-func (e *MessageEvent) BeforeCreate(tx *gorm.DB) error {
-	if e.UUID == "" {
-		uuid, err := helper.GenerateUUID()
-		if err != nil {
-			return err
-		}
-		e.UUID = uuid
-	}
-	return nil
 }

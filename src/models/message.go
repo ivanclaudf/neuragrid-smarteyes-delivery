@@ -2,12 +2,9 @@ package models
 
 import (
 	"database/sql/driver"
-	"delivery/helper"
 	"encoding/json"
 	"errors"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // Channel type for message channels
@@ -72,6 +69,7 @@ func (j *JSON) Scan(value interface{}) error {
 type Message struct {
 	ID          uint      `gorm:"primarykey"`
 	UUID        string    `gorm:"type:varchar(36);uniqueIndex;not null"`
+	TenantID    string    `gorm:"column:tenant_id;type:varchar(100);not null;index:idx_detection_events_tenant,priority:1,sort:desc;"`
 	Channel     Channel   `gorm:"type:varchar(10);not null;index;check:channel IN ('WHATSAPP', 'SMS', 'EMAIL')"`
 	Identifiers JSON      `gorm:"type:jsonb;not null"`
 	Categories  JSON      `gorm:"type:jsonb"`
@@ -79,16 +77,4 @@ type Message struct {
 	Status      Status    `gorm:"type:varchar(10);default:'ACCEPTED';not null;index;check:status IN ('ACCEPTED', 'SENT', 'DELIVERED', 'REJECTED', 'READ', 'FAILED')"`
 	CreatedAt   time.Time `gorm:"autoCreateTime;not null;index"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime;not null"`
-}
-
-// BeforeCreate hook for Message model to automatically generate a UUID
-func (m *Message) BeforeCreate(tx *gorm.DB) error {
-	if m.UUID == "" {
-		uuid, err := helper.GenerateUUID()
-		if err != nil {
-			return err
-		}
-		m.UUID = uuid
-	}
-	return nil
 }

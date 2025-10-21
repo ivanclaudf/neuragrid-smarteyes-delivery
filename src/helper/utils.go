@@ -67,3 +67,14 @@ func RenderTemplate(templateContent string, variables map[string]string) (string
 
 	return buf.String(), nil
 }
+
+// StructToJSON converts a struct to a map[string]interface{} for storing as JSON
+func StructToJSON(v interface{}) map[string]interface{} {
+	var result map[string]interface{}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return map[string]interface{}{"error": err.Error()}
+	}
+	json.Unmarshal(b, &result)
+	return result
+}
