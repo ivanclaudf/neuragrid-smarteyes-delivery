@@ -60,6 +60,37 @@ func (p *PulsarClient) Close() {
 	p.client.Close()
 }
 
+// CreateTopic creates a topic if it doesn't exist
+func (p *PulsarClient) CreateTopic(topic string) error {
+	// Try to create a producer for the topic, which will create the topic if it doesn't exist
+	producer, err := p.client.CreateProducer(pulsar.ProducerOptions{
+		Topic: topic,
+	})
+	if err != nil {
+		return err
+	}
+	defer producer.Close()
+
+	helper.Log.Infof("Topic '%s' created or already exists", topic)
+	return nil
+}
+
+// EnsureTopicsExist creates all required topics if they don't exist
+func (p *PulsarClient) EnsureTopicsExist() error {
+	topics := []string{EmailTopic, SMSTopic, WhatsAppTopic}
+
+	for _, topic := range topics {
+		helper.Log.Infof("Ensuring topic '%s' exists...", topic)
+		if err := p.CreateTopic(topic); err != nil {
+			helper.Log.Errorf("Failed to create topic '%s': %v", topic, err)
+			return fmt.Errorf("failed to create topic '%s': %w", topic, err)
+		}
+	}
+
+	helper.Log.Info("All required topics are ready")
+	return nil
+}
+
 // ProduceMessage produces a message to a topic
 func (p *PulsarClient) ProduceMessage(topic string, message interface{}) error {
 	producer, err := p.client.CreateProducer(pulsar.ProducerOptions{
@@ -85,15 +116,24 @@ func (p *PulsarClient) ProduceMessage(topic string, message interface{}) error {
 
 // ConsumeMessages consumes messages from a topic
 func (p *PulsarClient) ConsumeMessages(topic, subscription string, handler func(message []byte) error) error {
+	// Ensure topic exists before attempting to consume
+	if err := p.CreateTopic(topic); err != nil {
+		helper.Log.Errorf("Failed to ensure topic '%s' exists: %v", topic, err)
+		return fmt.Errorf("failed to ensure topic exists: %w", err)
+	}
+
 	consumer, err := p.client.Subscribe(pulsar.ConsumerOptions{
 		Topic:            topic,
 		SubscriptionName: subscription,
 		Type:             pulsar.Shared, // Allow multiple consumers to process messages
 	})
 	if err != nil {
-		return err
+		helper.Log.Errorf("Failed to subscribe to topic '%s': %v", topic, err)
+		return fmt.Errorf("failed to subscribe to topic '%s': %w", topic, err)
 	}
 	defer consumer.Close()
+
+	helper.Log.Infof("Successfully subscribed to topic '%s' with subscription '%s'", topic, subscription)
 
 	ctx := context.Background()
 	for {
@@ -143,6 +183,13 @@ func NewConsumerManager(db *gorm.DB, readerDB *gorm.DB) (*ConsumerManager, error
 	pulsarClient, err := NewPulsarClient()
 	if err != nil {
 		return nil, err
+	}
+
+	// Ensure all required topics exist before starting consumers
+	helper.Log.Info("Creating required Pulsar topics...")
+	if err := pulsarClient.EnsureTopicsExist(); err != nil {
+		pulsarClient.Close()
+		return nil, fmt.Errorf("failed to ensure topics exist: %w", err)
 	}
 
 	return &ConsumerManager{
