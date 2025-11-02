@@ -47,5 +47,5 @@ RUN go mod tidy && \
 # Expose the application port
 EXPOSE 8080
 
-# Command to keep the container running for debugging
-CMD ["sleep", "infinity"]
+# Run the Go application
+CMD ["./main"]
