@@ -23,8 +23,8 @@ ENV GOPATH /var/www/go
 ENV PATH ${PATH}:/var/www/go/bin:/usr/local/go/bin
 
 
-# Set the working directory
-WORKDIR /app
+# Set the working directory for building
+WORKDIR /build
 
 # Copy the Go modules and source code
 COPY src ./
@@ -36,16 +36,20 @@ ENV CGO_ENABLED=${CGO_ENABLED}
 ENV GOOS=${GOOS}
 ENV GOARCH=${GOARCH}
 
-# Add error checking to build process
-RUN go mod tidy && \
-    echo "Building application..." && \
-    go build -v -o main . && \
-    echo "Build completed." && \
-    ls -la && \
-    test -f main || (echo "ERROR: main binary was not created. Build failed." && exit 1)
+# Download dependencies
+RUN go mod download
 
-# Expose the application port
+# Build the application
+RUN go build -o delivery main.go
+
+# Set the working directory for runtime
+WORKDIR /app
+
+# Copy the built executable to a location that won't be overridden by volume mount
+RUN cp /build/delivery /usr/local/bin/delivery && chmod +x /usr/local/bin/delivery
+
+# Expose the port the app runs on
 EXPOSE 8080
 
-# Run the Go application
-CMD ["./main"]
+# Command to run the application
+CMD ["delivery"]

@@ -23,7 +23,7 @@ type WhatsAppMessage struct {
 	Categories  []string               `json:"categories" validate:"required,min=1"`
 	TenantID    string                 `json:"tenantId" validate:"required"`
 	Identifiers map[string]interface{} `json:"identifiers" validate:"required"`
-	Params      map[string]string      `json:"params"`
+	Params      map[string]interface{} `json:"params"`
 	Attachments *WhatsAppAttachments   `json:"attachments"`
 }
 

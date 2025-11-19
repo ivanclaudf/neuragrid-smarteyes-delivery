@@ -193,22 +193,6 @@ func (p *SendGridProvider) sendRequest(emailRequest map[string]interface{}) erro
 		return err
 	}
 
-	// Log detailed request info
-	requestBodyStr := string(requestBody)
-	// Mask API key in logs if it appears in the request body
-	if p.APIKey != "" {
-		requestBodyStr = strings.Replace(requestBodyStr, p.APIKey, "[REDACTED]", -1)
-	}
-
-	helper.Log.WithFields(map[string]interface{}{
-		"endpoint":    endpoint,
-		"fromEmail":   p.FromEmail,
-		"recipients":  emailRequest["personalizations"].([]map[string]interface{})[0]["to"],
-		"subject":     emailRequest["subject"],
-		"requestBody": requestBodyStr,
-		"contentType": emailRequest["content"].([]map[string]string)[0]["type"],
-	}).Info("Sending SendGrid Email API request")
-
 	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return err

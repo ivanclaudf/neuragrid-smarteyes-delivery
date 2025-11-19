@@ -185,9 +185,6 @@ Send SMS messages to recipients. Messages are queued and processed asynchronousl
         "eventUuid": "0bca5714-bceb-49a4-a4eb-e3afcec26328",
         "actionCode": "user_verification"
       }
-          "tenantId": "example-tenant",
-          "identifiers": {
-            "eventUuid": "0bca5714-bceb-49a4-a4eb-e3afcec26328"
     }
   ]
 }
@@ -206,7 +203,6 @@ Send SMS messages to recipients. Messages are queued and processed asynchronousl
 | messages[].refno | string | Yes | Reference number for tracking |
 | messages[].categories | array | Yes | Array of category strings |
 | messages[].identifiers | object | Yes | Identifiers for message tracking |
-| messages[].tenantId | string | Yes | Tenant identifier |
 | messages[].tenantId | string | Yes | Tenant identifier |
 | messages[].identifiers.eventUuid | string | No | Event UUID |
 | messages[].identifiers.actionUuid | string | No | Action UUID |
@@ -267,7 +263,7 @@ Send emails to recipients. Messages are queued and processed asynchronously.
         "notifications"
       ],
       "identifiers": {
-        "tenant": "example-tenant",
+        "tenantId": "example-tenant",
         "eventUuid": "0bca5714-bceb-49a4-a4eb-e3afcec26328"
       },
       "params": {
@@ -352,7 +348,7 @@ Create a new template.
       "twilio": "HM123456",
       "gupshup": "gupshup-template-1234"
     },
-    "tenant": "example-tenant"
+    "tenantId": "example-tenant"
   }]
 }
 ```
@@ -369,7 +365,7 @@ Create a new template.
 | templates[].status | number | No | Status of the template (0=inactive, 1=active). Default is 0 |
 | templates[].channel | string | Yes | Channel for the template (WHATSAPP, SMS, EMAIL) |
 | templates[].templateIds | object | No | Provider-specific template IDs as key-value pairs |
-| templates[].tenant | string | Yes | Tenant identifier |
+| templates[].tenantId | string | Yes | Tenant identifier |
 
 **Response:**
 
@@ -389,7 +385,7 @@ Create a new template.
         "twilio": "HM123456",
         "gupshup": "gupshup-template-1234"
       },
-      "tenant": "example-tenant",
+      "tenantId": "example-tenant",
       "createdAt": "2025-10-06T12:00:00Z",
       "updatedAt": "2025-10-06T12:00:00Z"
     }
@@ -408,7 +404,7 @@ Get all templates with optional filtering.
 | limit | integer | No | Maximum number of templates to return (default: 50) |
 | offset | integer | No | Number of templates to skip for pagination |
 | channel | string | No | Filter templates by channel (WHATSAPP, SMS, EMAIL) |
-| tenant | string | No | Filter templates by tenant identifier |
+| tenantId | string | No | Filter templates by tenant identifier |
 | code | string | No | Filter templates by code |
 
 **Response:**
@@ -428,7 +424,7 @@ Get all templates with optional filtering.
         "twilio": "HM123456",
         "gupshup": "gupshup-template-1234"
       },
-      "tenant": "example-tenant",
+      "tenantId": "example-tenant",
       "createdAt": "2025-10-06T12:00:00Z",
       "updatedAt": "2025-10-06T12:00:00Z"
     }
@@ -457,7 +453,7 @@ Get a template by UUID.
         "twilio": "HM123456",
         "gupshup": "gupshup-template-1234"
       },
-      "tenant": "example-tenant",
+      "tenantId": "example-tenant",
       "createdAt": "2025-10-06T12:00:00Z",
       "updatedAt": "2025-10-06T12:00:00Z"
     }
@@ -508,7 +504,7 @@ Update a template by UUID.
         "twilio": "HM123456_UPDATED",
         "messagebird": "mb-template-5678"
       },
-      "tenant": "example-tenant",
+      "tenantId": "example-tenant",
       "createdAt": "2025-10-06T12:00:00Z",
       "updatedAt": "2025-10-06T13:15:00Z"
     }
@@ -539,7 +535,7 @@ Create a new provider.
       "authToken": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     },
     "channel": "WHATSAPP",
-    "tenant": "default",
+    "tenantId": "default",
     "status": 1
   }]
 }
@@ -557,7 +553,7 @@ Create a new provider.
 | providers[].secureConfig | object | Yes | Secure provider configuration (will be encrypted) |
 | providers[].status | number | No | Status of the provider (0=inactive, 1=active). Default is 0 |
 | providers[].channel | string | Yes | Channel for the provider (WHATSAPP, SMS, EMAIL) |
-| providers[].tenant | string | Yes | Tenant identifier |
+| providers[].tenantId | string | Yes | Tenant identifier |
 
 **Response:**
 
@@ -577,7 +573,7 @@ Create a new provider.
         "accountSid": "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
       },
       "channel": "WHATSAPP",
-      "tenant": "default",
+      "tenantId": "default",
       "status": 1,
       "createdAt": "2025-10-06T12:00:00Z",
       "updatedAt": "2025-10-06T12:00:00Z"
@@ -608,7 +604,7 @@ Get all providers.
         "accountSid": "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
       },
       "channel": "WHATSAPP",
-      "tenant": "default",
+      "tenantId": "default",
       "status": 1,
       "createdAt": "2025-10-06T12:00:00Z",
       "updatedAt": "2025-10-06T12:00:00Z"
@@ -639,7 +635,7 @@ Get a provider by UUID.
         "accountSid": "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
       },
       "channel": "WHATSAPP",
-      "tenant": "default",
+      "tenantId": "default",
       "status": 1,
       "createdAt": "2025-10-06T12:00:00Z",
       "updatedAt": "2025-10-06T12:00:00Z"
@@ -693,7 +689,7 @@ Update a provider by UUID.
         "accountSid": "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
       },
       "channel": "WHATSAPP",
-      "tenant": "default",
+      "tenantId": "default",
       "status": 1,
       "createdAt": "2025-10-06T12:00:00Z",
       "updatedAt": "2025-10-06T13:15:00Z"

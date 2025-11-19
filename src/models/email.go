@@ -8,7 +8,7 @@ type EmailMessage struct {
 	RefNo       string                 `json:"refno"`
 	Categories  []string               `json:"categories"`
 	Identifiers map[string]interface{} `json:"identifiers"`
-	Params      map[string]string      `json:"params"`
+	Params      map[string]interface{} `json:"params"`
 	Subject     string                 `json:"subject,omitempty"`
 	Attachments []AttachmentMetadata   `json:"attachments,omitempty"`
 	TenantID    string                 `json:"tenantId"`

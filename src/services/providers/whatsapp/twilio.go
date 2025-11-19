@@ -167,17 +167,32 @@ func (p *TwilioProvider) SendMedia(to string, caption string, mediaType string, 
 }
 
 // SendTemplate implements the WhatsAppService.SendTemplate method
-func (p *TwilioProvider) SendTemplate(to string, templateName string, params map[string]string) error {
+func (p *TwilioProvider) SendTemplate(to string, templateName string, params map[string]interface{}) error {
 	// Ensure to has whatsapp: prefix
 	if !strings.HasPrefix(to, "whatsapp:") {
 		to = "whatsapp:" + to
 	}
 
-	// Use the provided template ID - this should be the provider-specific template ID
-	// that has already been mapped in the consumer
+	// Check if we have a pre-rendered content in params
+	// The consumer pre-renders the template and passes it as "rendered_content"
+	renderedContent, hasRenderedContent := params["rendered_content"].(string)
+
+	if hasRenderedContent && renderedContent != "" {
+		// Use the pre-rendered content as the message body
+		// This is simpler and more reliable than Twilio's Content Template system
+		formData := url.Values{}
+		formData.Set("From", p.FromNumber)
+		formData.Set("To", to)
+		formData.Set("Body", renderedContent)
+
+		return p.sendRequest(formData)
+	}
+
+	// Fallback: Use Twilio's Content Template system if no rendered content
+	// This path is kept for compatibility but may not work with complex nested objects
 	contentSid := templateName
 
-	helper.Log.WithField("twilioTemplateID", contentSid).Debug("Using template ID for Twilio message")
+	helper.Log.WithField("twilioTemplateID", contentSid).Warn("No rendered_content found in params, falling back to Twilio Content Template (may not work with complex params)")
 
 	// Convert params to a JSON string for Twilio's template variables
 	var contentVariables string
@@ -197,10 +212,6 @@ func (p *TwilioProvider) SendTemplate(to string, templateName string, params map
 	formData.Set("To", to)
 	formData.Set("ContentSid", contentSid)
 	formData.Set("ContentVariables", contentVariables)
-
-	// Note: We're not setting the Body field here because the content is passed
-	// through the ContentSid and ContentVariables fields for Twilio's WhatsApp templates.
-	// The template rendering happens at the consumer level before reaching this function.
 
 	return p.sendRequest(formData)
 }

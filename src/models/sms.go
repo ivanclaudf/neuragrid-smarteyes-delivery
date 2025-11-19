@@ -10,7 +10,7 @@ type SMSMessage struct {
 	RefNo       string                 `json:"refno"`
 	Categories  []string               `json:"categories"`
 	Identifiers map[string]interface{} `json:"identifiers"`
-	Params      map[string]string      `json:"params"`
+	Params      map[string]interface{} `json:"params"`
 	TenantID    string                 `json:"tenantId"`
 }
 

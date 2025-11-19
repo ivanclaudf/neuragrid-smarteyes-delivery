@@ -263,7 +263,7 @@ func (c *WhatsAppConsumer) sendToRecipients(
 	dbMessage *models.Message,
 	recipients []models.WhatsAppRecipient,
 	templateID string,
-	params map[string]string,
+	params map[string]interface{},
 	templateContent string,
 ) {
 	helper.Log.WithField("recipient_count", len(recipients)).Info("Processing recipients")
@@ -278,20 +278,10 @@ func (c *WhatsAppConsumer) sendToRecipients(
 		}).Info("Sending WhatsApp message")
 
 		// Render the template with variables using Go's text/template
-		helper.Log.WithFields(map[string]interface{}{
-			"telephone": recipient.Telephone,
-			"params":    params,
-			"template":  templateContent,
-		}).Debug("Rendering template with parameters")
-
-		renderedContent, err := helper.RenderTemplate(templateContent, params)
+		renderedContent, err := helper.ProcessTemplate(templateContent, params)
 		if err != nil {
 			errMsg := fmt.Sprintf("Failed to render template for %s: %v", recipient.Telephone, err)
-			helper.Log.WithError(err).WithFields(map[string]interface{}{
-				"telephone": recipient.Telephone,
-				"params":    params,
-				"template":  templateContent,
-			}).Error("Template rendering failed")
+			helper.Log.WithError(err).Error("Template rendering failed")
 
 			// Update message status to REJECTED
 			dbMessage.Status = models.StatusRejected
@@ -307,15 +297,9 @@ func (c *WhatsAppConsumer) sendToRecipients(
 			continue
 		}
 
-		helper.Log.WithFields(map[string]interface{}{
-			"telephone":        recipient.Telephone,
-			"original_content": templateContent,
-			"rendered_content": renderedContent,
-		}).Debug("Template rendered successfully")
-
 		// For Twilio WhatsApp, update the params with the rendered content
 		// This way we preserve the original API contract but enhance it with the rendered template
-		paramsWithRenderedContent := make(map[string]string)
+		paramsWithRenderedContent := make(map[string]interface{})
 		for k, v := range params {
 			paramsWithRenderedContent[k] = v
 		}
@@ -434,13 +418,6 @@ func (c *WhatsAppConsumer) handleMessage(data []byte) error {
 		helper.Log.WithError(err).Error("Failed to update message status to ACCEPTED")
 		return fmt.Errorf("failed to update message status: %w", err)
 	}
-
-	// Log the template content that will be used
-	helper.Log.WithFields(map[string]interface{}{
-		"template_uuid": template.UUID,
-		"template_name": template.Name,
-		"content":       template.Content,
-	}).Debug("Using template content for rendering")
 
 	// Send to all recipients with the template content
 	c.sendToRecipients(whatsappProvider, dbMessage, message.To, templateID, message.Params, template.Content)

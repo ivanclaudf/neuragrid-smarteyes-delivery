@@ -22,7 +22,7 @@ type EmailMessage struct {
 	RefNo       string                 `json:"refno" validate:"required"`
 	Categories  []string               `json:"categories" validate:"required,min=1"`
 	Identifiers map[string]interface{} `json:"identifiers" validate:"required"`
-	Params      map[string]string      `json:"params"`
+	Params      map[string]interface{} `json:"params"`
 	Subject     string                 `json:"subject,omitempty"`
 	Attachments []AttachmentMetadata   `json:"attachments,omitempty"`
 	TenantID    string                 `json:"tenantId" validate:"required"`

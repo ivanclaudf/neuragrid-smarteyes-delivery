@@ -32,11 +32,11 @@ func GetEnv(key, defaultValue string) string {
 // RenderTemplate renders a Go template string with provided variables
 // It takes a template content string and a map of variables to inject
 // Returns the rendered string or an error
-func RenderTemplate(templateContent string, variables map[string]string) (string, error) {
+func RenderTemplate(templateContent string, variables map[string]interface{}) (string, error) {
 	// Create a custom function to get variables by key name
 	// This handles all variable names, including numeric ones
 	funcMap := template.FuncMap{
-		"var": func(key string) string {
+		"var": func(key string) interface{} {
 			if val, ok := variables[key]; ok {
 				return val
 			}

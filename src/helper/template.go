@@ -8,22 +8,15 @@ import (
 )
 
 // ProcessTemplate processes a template string with the given parameters
-func ProcessTemplate(templateString string, params map[string]string) (string, error) {
+func ProcessTemplate(templateString string, params map[string]interface{}) (string, error) {
 	// Create a custom function map to support the {{var "key"}} syntax
 	funcMap := template.FuncMap{
-		"var": func(key string) string {
+		"var": func(key string) interface{} {
 			if val, ok := params[key]; ok {
 				return val
 			}
 			return ""
 		},
-	}
-
-	// Get key names from the map, prioritizing string keys over numeric keys
-	// This is helpful for templates that use simple {{.name}} syntax
-	mappedParams := make(map[string]interface{})
-	for k, v := range params {
-		mappedParams[k] = v
 	}
 
 	// Create the template with our functions
@@ -32,18 +25,12 @@ func ProcessTemplate(templateString string, params map[string]string) (string, e
 		return "", err
 	}
 
-	// First try executing with mappedParams to support {{.key}} syntax
+	// Execute with params to support {{.key}} syntax
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, mappedParams)
+	err = tmpl.Execute(&buf, params)
 
-	// If there's an error, log it for debugging
 	if err != nil {
-		// Try executing with nil to support {{var "key"}} syntax
-		buf.Reset()
-		err = tmpl.Execute(&buf, nil)
-		if err != nil {
-			return "", err
-		}
+		return "", err
 	}
 
 	return buf.String(), nil
@@ -60,7 +47,7 @@ func GetCurrentTime() time.Time {
 }
 
 // DebugTemplate attempts to process a template and returns detailed information about any failures
-func DebugTemplate(templateString string, params map[string]string) map[string]interface{} {
+func DebugTemplate(templateString string, params map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	result["template"] = templateString
 	result["params"] = params
@@ -83,7 +70,7 @@ func DebugTemplate(templateString string, params map[string]string) map[string]i
 
 	// Try with var function
 	funcMap := template.FuncMap{
-		"var": func(key string) string {
+		"var": func(key string) interface{} {
 			if val, ok := params[key]; ok {
 				return val
 			}
@@ -98,7 +85,7 @@ func DebugTemplate(templateString string, params map[string]string) map[string]i
 	}
 
 	buf.Reset()
-	err = tmpl.Execute(&buf, nil)
+	err = tmpl.Execute(&buf, params)
 	if err != nil {
 		result["varFuncExecuteError"] = err.Error()
 	} else {

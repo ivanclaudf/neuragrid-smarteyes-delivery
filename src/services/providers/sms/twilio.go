@@ -183,22 +183,20 @@ func (p *TwilioProvider) SendBulk(to []string, message string) error {
 // For now, we just use the rendered content from the template (done earlier)
 // and send it via the normal Send method. In the future, this could use
 // provider-specific template APIs if available.
-func (p *TwilioProvider) SendTemplate(to string, templateName string, params map[string]string) error {
+func (p *TwilioProvider) SendTemplate(to string, templateName string, params map[string]interface{}) error {
 	// If the rendered content was provided in the params, use it
 	renderedContent, exists := params["rendered_content"]
 	if !exists {
 		return errors.New("rendered_content not found in params")
 	}
 
-	helper.Log.WithFields(map[string]interface{}{
-		"to":           to,
-		"template":     templateName,
-		"content":      renderedContent,
-		"provider":     "twilio",
-		"provider_sid": p.AccountSID,
-	}).Debug("Sending template SMS via Twilio")
+	// Convert to string
+	renderedContentStr, ok := renderedContent.(string)
+	if !ok {
+		return errors.New("rendered_content must be a string")
+	}
 
-	return p.Send(to, renderedContent)
+	return p.Send(to, renderedContentStr)
 }
 
 // sendRequest sends a request to the Twilio API
@@ -226,8 +224,37 @@ func (p *TwilioProvider) sendRequest(formData url.Values) error {
 	}
 	defer resp.Body.Close()
 
+	// Read response body for logging
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		helper.Log.WithError(readErr).Warn("Failed to read Twilio response body")
+	}
+
+	// Parse the response to get message SID and status
+	var twilioResponse struct {
+		SID          string `json:"sid"`
+		Status       string `json:"status"`
+		ErrorCode    int    `json:"error_code"`
+		ErrorMessage string `json:"error_message"`
+		DateCreated  string `json:"date_created"`
+		To           string `json:"to"`
+		From         string `json:"from"`
+	}
+
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &twilioResponse); err == nil {
+			helper.Log.WithFields(map[string]interface{}{
+				"message_sid":  twilioResponse.SID,
+				"status":       twilioResponse.Status,
+				"to":           twilioResponse.To,
+				"from":         twilioResponse.From,
+				"date_created": twilioResponse.DateCreated,
+				"status_code":  resp.StatusCode,
+			}).Info("Twilio SMS API response")
+		}
+	}
+
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
 		bodyStr := string(body)
 
 		// Log more detailed error information

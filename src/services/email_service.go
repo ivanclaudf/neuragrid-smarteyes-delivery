@@ -74,7 +74,9 @@ func (s *EmailServiceImpl) SendEmail(message *models.EmailMessage) error {
 	// Process the subject with params if provided
 	subject := message.Subject
 	if subject == "" && message.Params != nil {
-		subject = message.Params["subject"]
+		if subjectVal, ok := message.Params["subject"].(string); ok {
+			subject = subjectVal
+		}
 	}
 
 	// Use template subject if still empty

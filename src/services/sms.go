@@ -15,7 +15,7 @@ type SMSService interface {
 	// SendTemplate sends a template message to a recipient
 	// Currently implemented by rendering template on server side and using Send
 	// Future implementations may use provider-specific template APIs
-	SendTemplate(to string, templateName string, params map[string]string) error
+	SendTemplate(to string, templateName string, params map[string]interface{}) error
 
 	// Get SMS delivery status by message ID
 	GetStatus(messageID string) (types.DeliveryStatus, error)

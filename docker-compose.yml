@@ -20,12 +20,7 @@ services:
       - DB_READER_NAME=delivery
       - VERSION=0.1.0
       - LOG_LEVEL=debug
-      - SENDGRID_API_KEY=your_sendgrid_api_key
-      - SENDGRID_FROM_EMAIL=your_from_email
-      - TWILIO_ACCOUNT_SID=your_twilio_account_sid
-      - TWILIO_AUTH_TOKEN=your_twilio_auth_token
-      - TWILIO_FROM_NUMBER=your_twilio_from_number
-      - TWILIO_WHATSAPP_FROM=whatsapp:your_twilio_whatsapp_number
       - PULSAR_URL=pulsar://host.docker.internal:6650
       - ENCRYPTION_KEY=0123456789abcdef0123456789abcdef
+    command: ["sleep", "infinity"]      
 

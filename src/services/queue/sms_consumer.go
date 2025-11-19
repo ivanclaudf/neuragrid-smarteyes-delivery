@@ -166,13 +166,6 @@ func (c *SMSConsumer) processSMSMessage(msg pulsar.Message) error {
 		return fmt.Errorf("failed to update message status: %w", err)
 	}
 
-	// Log the template content that will be used
-	messageLogger.WithFields(map[string]interface{}{
-		"template_uuid": template.UUID,
-		"template_name": template.Name,
-		"content":       template.Content,
-	}).Debug("Using template content for rendering")
-
 	// Extract the telephone number from the first recipient (assuming single recipient for now)
 	if len(message.To) == 0 {
 		messageLogger.Error("No recipients found in SMS message")
@@ -182,13 +175,7 @@ func (c *SMSConsumer) processSMSMessage(msg pulsar.Message) error {
 	toNumber := message.To[0].Telephone
 
 	// Render the template with variables using Go's text/template
-	messageLogger.WithFields(map[string]interface{}{
-		"telephone": toNumber,
-		"params":    message.Params,
-		"template":  template.Content,
-	}).Debug("Rendering template with parameters")
-
-	renderedContent, err := helper.RenderTemplate(template.Content, message.Params)
+	renderedContent, err := helper.ProcessTemplate(template.Content, message.Params)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to render template for %s: %v", toNumber, err)
 		messageLogger.WithError(err).WithFields(map[string]interface{}{
@@ -215,7 +202,7 @@ func (c *SMSConsumer) processSMSMessage(msg pulsar.Message) error {
 	}).Info("Sending SMS message from template")
 
 	// For SendTemplate, add a special parameter with the rendered content
-	paramsWithRenderedContent := make(map[string]string)
+	paramsWithRenderedContent := make(map[string]interface{})
 	for k, v := range message.Params {
 		paramsWithRenderedContent[k] = v
 	}

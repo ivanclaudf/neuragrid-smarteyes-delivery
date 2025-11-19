@@ -24,7 +24,7 @@ type SMSMessage struct {
 	RefNo       string                 `json:"refno" validate:"required"`
 	Categories  []string               `json:"categories" validate:"required,min=1"`
 	Identifiers map[string]interface{} `json:"identifiers" validate:"required"`
-	Params      map[string]string      `json:"params"`
+	Params      map[string]interface{} `json:"params"`
 	TenantID    string                 `json:"tenantId" validate:"required"`
 }
 

@@ -15,7 +15,7 @@ type WhatsAppService interface {
 	// Send a template message to a recipient
 	// templateName is the provider's template ID, content is the rendered template content,
 	// and params are the variables to replace in the template
-	SendTemplate(to string, templateName string, params map[string]string) error
+	SendTemplate(to string, templateName string, params map[string]interface{}) error
 
 	// Get WhatsApp message delivery status by message ID
 	GetStatus(messageID string) (types.DeliveryStatus, error)
