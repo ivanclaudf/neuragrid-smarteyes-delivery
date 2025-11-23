@@ -22,5 +22,5 @@ services:
       - LOG_LEVEL=debug
       - PULSAR_URL=pulsar://host.docker.internal:6650
       - ENCRYPTION_KEY=0123456789abcdef0123456789abcdef
-    command: ["sleep", "infinity"]      
+    #command: ["sleep", "infinity"]      
 
